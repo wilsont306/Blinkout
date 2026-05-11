@@ -2583,6 +2583,10 @@ body {
     radial-gradient(circle at 50% 45%, #15110d 0%, #0c0a09 60%, #050403 100%);
   color: #f5efe6;
   animation: posterQueueIn 500ms cubic-bezier(.2,.8,.2,1) both;
+  overflow-y: auto;
+  align-items: flex-start;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .poster-card--invite {
@@ -2594,6 +2598,16 @@ body {
   border-color: rgba(245,239,230,0.16);
   box-shadow: inset 0 0 0 1px rgba(245,239,230,0.05), 0 30px 80px rgba(0,0,0,0.6);
   gap: 20px;
+  min-height: unset;
+  margin: auto;
+}
+
+/* Limit camera height on short screens so buttons stay reachable */
+@media (max-height: 750px) {
+  .invite-cam-window {
+    aspect-ratio: unset;
+    height: clamp(80px, 18vh, 160px);
+  }
 }
 
 .poster-screen--invite .poster-meta,
