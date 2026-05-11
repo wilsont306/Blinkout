@@ -5,7 +5,7 @@ export default function Result({
   rematchStatus = null,   // null | 'requested' | 'opponent-wants' | 'declined'
   onRematch,
   onCancelRematch,
-  onLeave,
+  onLeave = () => {},
 }) {
   if (!resultData) return (
     <div className="poster-screen poster-screen--result poster-screen--result-lose">
@@ -21,8 +21,12 @@ export default function Result({
     </div>
   )
 
-  const { winner, duration, blinkTimestamp, myPlayerId, opponentName, reason } = resultData
-  const isWin = winner === myPlayerId
+  const { winner, myPlayerId, reason } = resultData
+  const opponentName = resultData.opponentName || 'Opponent'
+  const blinkTimestamp = Number.isFinite(resultData.blinkTimestamp) ? resultData.blinkTimestamp : 0
+  const duration = Number.isFinite(resultData.duration) ? resultData.duration : blinkTimestamp
+  const isWin = typeof resultData.isWin === 'boolean' ? resultData.isWin : winner === myPlayerId
+  const holdLabel = `${(blinkTimestamp / 1000).toFixed(2)}s`
 
   const rematchLabel = rematchStatus === 'requested'
     ? `Waiting for ${opponentName}…`
@@ -62,10 +66,10 @@ export default function Result({
 
         <p className="poster-subline">
           {isWin
-            ? `${opponentName} blinked · held for ${(blinkTimestamp / 1000).toFixed(2)}s`
+            ? `${opponentName} blinked · held for ${holdLabel}`
             : reason === 'forfeit'
             ? 'You left the match'
-            : `You blinked · held for ${(blinkTimestamp / 1000).toFixed(2)}s`}
+            : `You blinked · held for ${holdLabel}`}
         </p>
 
         <div className="result-stats-strip">
