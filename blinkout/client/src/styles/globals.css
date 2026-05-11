@@ -2790,3 +2790,7 @@ body {
   color: #e89a3c;
   line-height: 1.4;
 }
+
+.invite-player__status.is-ok {
+  color: rgba(245,239,230,0.6);
+}

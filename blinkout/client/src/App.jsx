@@ -311,6 +311,7 @@ export default function App() {
             blink={blink}
             onMatchStart={handleInviteMatchStart}
             onLeave={handleLeaveInvite}
+            onSetName={handleSetName}
           />
         )}
 
