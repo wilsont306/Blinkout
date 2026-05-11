@@ -31,6 +31,7 @@ export default function InviteLobby({
   const startedRef    = useRef(false)
   const lastFrameRef  = useRef(0)
   const opponentRef   = useRef(null)
+  const iAmReadyRef   = useRef(false)
   // Per-tab session ID — unlike CLIENT_ID this is NOT shared across same-browser tabs
   const sessionId     = useRef(crypto.randomUUID()).current
 
@@ -42,7 +43,7 @@ export default function InviteLobby({
 
   const cameraReady = camConfirmed && permission === 'granted'
   const inviteUrl   = `${window.location.origin}?invite=${roomCode}`
-  const canReady    = !!opponent && cameraReady && faceDetected && !iAmReady && !starting
+  const canReady    = cameraReady && faceDetected && !iAmReady && !starting
 
   // ── Phase transitions ──────────────────────────────────────────
   const handleOpenEye = () => {
@@ -74,26 +75,26 @@ export default function InviteLobby({
       config: { broadcast: { self: false } },
     })
 
-    const myInfo = { sessionId, clientId: CLIENT_ID, handle: playerName }
+    const myPayload = () => ({ sessionId, clientId: CLIENT_ID, handle: playerName, isReady: iAmReadyRef.current })
 
     const sendHello = () => ch.send({
-      type: 'broadcast', event: 'LOBBY_HELLO', payload: myInfo,
+      type: 'broadcast', event: 'LOBBY_HELLO', payload: myPayload(),
     })
 
     ch
       .on('broadcast', { event: 'LOBBY_HELLO' }, ({ payload }) => {
         if (payload.sessionId === sessionId) return
-        // Someone announced themselves — record them and reply so they see us
-        opponentRef.current = { ...payload, isReady: false }
-        setOpponent(opponentRef.current)
-        ch.send({ type: 'broadcast', event: 'LOBBY_HELLO_BACK', payload: myInfo })
+        // Someone announced themselves — record them and reply with our current state
+        opponentRef.current = { ...payload }
+        setOpponent({ ...payload })
+        ch.send({ type: 'broadcast', event: 'LOBBY_HELLO_BACK', payload: myPayload() })
       })
       .on('broadcast', { event: 'LOBBY_HELLO_BACK' }, ({ payload }) => {
         if (payload.sessionId === sessionId) return
         // Reply from someone already in the lobby
         if (!opponentRef.current) {
-          opponentRef.current = { ...payload, isReady: false }
-          setOpponent(opponentRef.current)
+          opponentRef.current = { ...payload }
+          setOpponent({ ...payload })
         }
       })
       .on('broadcast', { event: 'LOBBY_READY' }, ({ payload }) => {
@@ -152,6 +153,7 @@ export default function InviteLobby({
   // ── Ready ──────────────────────────────────────────────────────
   const handleReady = () => {
     if (!canReady) return
+    iAmReadyRef.current = true
     setIAmReady(true)
     channelRef.current?.send({
       type: 'broadcast', event: 'LOBBY_READY', payload: { sessionId, isReady: true },
@@ -386,10 +388,9 @@ export default function InviteLobby({
             {starting ? 'Starting…' : iAmReady ? `Waiting for ${opponent?.handle}…` : 'Ready'}
             <small>
               {starting       ? 'entering the duel'
-              : iAmReady      ? `waiting for ${opponent?.handle}`
+              : iAmReady      ? 'waiting for opponent to ready up'
               : !faceDetected ? 'face must be visible to ready up'
-              : !opponent     ? 'waiting for opponent to join'
-              :                 'both must click ready to start'}
+              :                 'click when your face is detected'}
             </small>
           </button>
 
