@@ -317,7 +317,9 @@ export default function InviteLobby({
                 style={{ width: '100%', height: '100%', borderRadius: 8 }}
               />
             </div>
-            {camWarning && <p className="invite-cam-warning">{camWarning}</p>}
+            <p className="invite-cam-warning" style={{ visibility: camWarning ? 'visible' : 'hidden' }}>
+              {camWarning || ' '}
+            </p>
             <span className={`invite-player__status${iAmReady ? ' is-ready' : faceDetected ? ' is-ok' : ''}`}>
               {iAmReady ? 'READY' : faceDetected ? 'FACE DETECTED' : 'POSITION FACE'}
             </span>
@@ -341,14 +343,19 @@ export default function InviteLobby({
           </div>
         </div>
 
-        {!opponent && (
-          <button className="invite-copy-btn" type="button" onClick={handleCopy}>
-            {copied ? '✓ Copied!' : 'Copy invite link'}
-            <small>{inviteUrl}</small>
-          </button>
-        )}
+        <button
+          className="invite-copy-btn"
+          type="button"
+          onClick={handleCopy}
+          style={{ visibility: opponent ? 'hidden' : 'visible' }}
+        >
+          {copied ? '✓ Copied!' : 'Copy invite link'}
+          <small>{inviteUrl}</small>
+        </button>
 
-        {faceDetected && <EARBar ear={ear} />}
+        <div style={{ visibility: faceDetected ? 'visible' : 'hidden' }}>
+          <EARBar ear={ear} />
+        </div>
 
         <div className="invite-actions">
           <button
