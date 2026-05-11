@@ -118,11 +118,13 @@ export default function App() {
         bestHold: isWin ? Math.max(previous.bestHold || 0, blinkTimestamp) : previous.bestHold,
       }
       if (isWin) {
-        supabase.rpc('upsert_leaderboard', {
-          p_handle:    playerNameRef.current,
-          p_streak:    next.streak,
-          p_best_hold: next.bestHold,
-        }).catch(() => {})
+        window.setTimeout(() => {
+          supabase.rpc('upsert_leaderboard', {
+            p_handle:    playerNameRef.current,
+            p_streak:    next.streak,
+            p_best_hold: next.bestHold,
+          }).catch(() => {})
+        }, 0)
       }
       return next
     })

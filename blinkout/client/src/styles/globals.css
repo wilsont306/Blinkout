@@ -2839,3 +2839,36 @@ body {
 .invite-player__status.is-ok {
   color: rgba(245,239,230,0.6);
 }
+
+/* Final result-screen guard: keep victory visible even if earlier poster rules shift. */
+.poster-screen--result {
+  min-height: 100vh !important;
+  width: 100vw !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  background: radial-gradient(circle at 50% 45%, #15110d 0%, #0c0a09 60%, #050403 100%) !important;
+  color: #f5efe6 !important;
+}
+
+.poster-screen--result .poster-card--result {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(232,154,60,0.12), transparent 50%),
+    repeating-linear-gradient(0deg, rgba(245,239,230,0.045) 0 1px, transparent 1px 8px),
+    #0c0a09 !important;
+  color: #f5efe6 !important;
+  border-color: rgba(245,239,230,0.18) !important;
+}
+
+.poster-screen--result-lose .poster-card--result {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(217,71,46,0.12), transparent 50%),
+    repeating-linear-gradient(0deg, rgba(245,239,230,0.045) 0 1px, transparent 1px 8px),
+    #0c0a09 !important;
+}
