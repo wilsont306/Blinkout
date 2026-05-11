@@ -1627,12 +1627,31 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   text-align: center;
   background: var(--poster-ink);
   color: var(--poster-paper);
   font-family: Georgia, serif;
   font-style: italic;
   font-size: 18px;
+  gap: 6px;
+}
+
+.duel-forfeit-btn {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: rgba(217,71,46,0.7);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.duel-forfeit-btn:hover {
+  color: #e74c3c;
 }
 
 @media (max-width: 1100px) {
