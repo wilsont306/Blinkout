@@ -71,22 +71,35 @@ export default function InviteLobby({
       config: { broadcast: { self: false } },
     })
 
+    const getOpp = () => {
+      const presences = Object.values(ch.presenceState()).flat()
+      return presences.find(p => p.clientId !== CLIENT_ID) ?? null
+    }
+
+    const checkStart = () => {
+      if (startedRef.current) return
+      const presences = Object.values(ch.presenceState()).flat()
+      if (presences.length >= 2 && presences.every(p => p.isReady)) {
+        startedRef.current = true
+        setStarting(true)
+        const oppP = presences.find(p => p.clientId !== CLIENT_ID)
+        setTimeout(() => onMatchStart(roomCode, oppP.handle, oppP.clientId), 900)
+      }
+    }
+
     ch
       .on('presence', { event: 'sync' }, () => {
-        const presences = Object.values(ch.presenceState()).flat()
-        const opp = presences.find(p => p.clientId !== CLIENT_ID)
-        setOpponent(opp ?? null)
-
-        if (
-          !startedRef.current &&
-          presences.length === 2 &&
-          presences.every(p => p.isReady)
-        ) {
-          startedRef.current = true
-          setStarting(true)
-          const oppP = presences.find(p => p.clientId !== CLIENT_ID)
-          setTimeout(() => onMatchStart(roomCode, oppP.handle, oppP.clientId), 900)
-        }
+        setOpponent(getOpp())
+        checkStart()
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        const opp = newPresences.find(p => p.clientId !== CLIENT_ID)
+        if (opp) setOpponent(opp)
+        checkStart()
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        const oppLeft = leftPresences.find(p => p.clientId !== CLIENT_ID)
+        if (oppLeft) setOpponent(null)
       })
       .on('broadcast', { event: 'VIDEO_FRAME' }, ({ payload }) => {
         if (payload.fromId === CLIENT_ID) return
