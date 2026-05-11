@@ -456,6 +456,30 @@ body {
   gap: var(--sp-1);
 }
 
+.prematch__rules {
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgba(232,154,60,0.34);
+  border-radius: var(--radius-sm);
+  background: rgba(15,12,9,0.5);
+  color: rgba(245,239,230,0.62);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.prematch__rules strong {
+  color: #e89a3c;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+
 .prematch__countdown {
   display: flex;
   flex-direction: column;
@@ -756,6 +780,10 @@ body {
   border-color: rgba(245,239,230,0.92) !important;
   box-shadow: 0 0 28px rgba(232,154,60,0.4) !important;
   animation: posterCtaBreathe 1.2s ease-in-out infinite;
+}
+
+.result-cta--rematch.poster-cta--glow {
+  background: rgba(232,154,60,0.18);
 }
 
 /* ── Screen: Leaderboard ──────────────────────────────────── */

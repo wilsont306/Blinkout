@@ -73,6 +73,12 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
               {matchData?.opponentName}
             </span>
           </div>
+          <div className="prematch__rules" aria-label="Match rules">
+            <strong>Rules</strong>
+            <span>Three lives.</span>
+            <span>Each blink removes one life.</span>
+            <span>Covering both eyes or leaving the tab counts as a strike.</span>
+          </div>
         </div>
       </div>
 
