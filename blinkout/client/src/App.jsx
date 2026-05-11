@@ -81,28 +81,41 @@ export default function App() {
     }, 2000)
   }, [])
 
-  const handleMatchEnd = useCallback((data = {}) => {
-    setBlinkActive(false)
-    setOpponentFrame(null)
-    setRematchStatus(data.reason === 'forfeit' ? 'declined' : null)
-    const isWin = data.winner === CLIENT_ID
-    const blinkTimestamp = Number.isFinite(data.blinkTimestamp) ? data.blinkTimestamp : 0
-    const duration = Number.isFinite(data.duration) ? data.duration : blinkTimestamp
-    setResultData({
-      ...data,
+  const handleMatchEnd = useCallback((data) => {
+    const payload = data && typeof data === 'object' ? data : {}
+    const blinkTimestamp = Number.isFinite(payload.blinkTimestamp) ? payload.blinkTimestamp : 0
+    const duration = Number.isFinite(payload.duration) ? payload.duration : blinkTimestamp
+    const isWin = payload.winner === CLIENT_ID
+    const safeResult = {
+      ...payload,
       duration,
       blinkTimestamp,
+      winner: payload.winner ?? (isWin ? CLIENT_ID : matchData?.opponentId),
+      loser: payload.loser ?? (isWin ? matchData?.opponentId : CLIENT_ID),
+      matchId: payload.matchId ?? matchData?.matchId ?? crypto.randomUUID(),
       myPlayerId: CLIENT_ID,
       opponentName: matchData?.opponentName ?? 'Opponent',
       isWin,
-    })
+      reason: payload.reason ?? 'blink',
+    }
+
+    try {
+      sessionStorage.setItem('blinkout_last_result', JSON.stringify(safeResult))
+    } catch {}
+
+    setBlinkActive(false)
+    setOpponentFrame(null)
+    setRematchStatus(safeResult.reason === 'forfeit' ? 'declined' : null)
+    setResultData(safeResult)
     setScreen(SCREEN.RESULT)
+
     setStats(prev => {
+      const previous = prev ?? { wins: 0, losses: 0, streak: 0, bestHold: 0 }
       const next = {
-        wins:     isWin ? prev.wins + 1 : prev.wins,
-        losses:   isWin ? prev.losses   : prev.losses + 1,
-        streak:   isWin ? prev.streak + 1 : 0,
-        bestHold: isWin ? Math.max(prev.bestHold, blinkTimestamp) : prev.bestHold,
+        wins:     isWin ? previous.wins + 1 : previous.wins,
+        losses:   isWin ? previous.losses   : previous.losses + 1,
+        streak:   isWin ? previous.streak + 1 : 0,
+        bestHold: isWin ? Math.max(previous.bestHold || 0, blinkTimestamp) : previous.bestHold,
       }
       if (isWin) {
         supabase.rpc('upsert_leaderboard', {
