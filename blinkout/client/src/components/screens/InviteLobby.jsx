@@ -5,15 +5,15 @@ import CameraPreview from '../camera/CameraPreview.jsx'
 import EARBar from '../camera/EARBar.jsx'
 import Button from '../ui/Button.jsx'
 
-const MIN_FRAME_MS = 200
+const MIN_FRAME_MS = 67 // ~15fps
 const NAME_RE = /^[\w\s\-.]{1,30}$/
 
 export default function InviteLobby({
-  playerName, roomCode, camera, blink,
+  playerName, roomCode, isCreator = false, camera, blink,
   onMatchStart, onLeave, onSetName,
 }) {
-  // 'enter' → show intro + name, 'camera' → camera setup, 'lobby' → waiting room
-  const [phase, setPhase]           = useState('enter')
+  // creator skips 'enter' and goes straight to camera setup
+  const [phase, setPhase]           = useState(isCreator ? 'camera' : 'enter')
   const [openingBlink, setOpeningBlink] = useState(false)
   const [camConfirmed, setCamConfirmed] = useState(false)
 
@@ -56,6 +56,12 @@ export default function InviteLobby({
     setCamConfirmed(true)
     setPhase('lobby')
   }
+
+  // Creator skips intro — request camera immediately on mount
+  useEffect(() => {
+    if (isCreator && permission !== 'granted') requestCamera()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Join Supabase only when entering lobby (privacy) ───────────
   useEffect(() => {
@@ -344,7 +350,7 @@ export default function InviteLobby({
             </small>
           </button>
 
-          <button className="poster-cta poster-cta--cancel" type="button" onClick={onLeave}>
+          <button className="poster-cta poster-cta--leave" type="button" onClick={onLeave}>
             Leave
             <small>return to lobby</small>
           </button>

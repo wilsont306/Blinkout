@@ -2709,9 +2709,24 @@ body {
 /* Actions */
 .invite-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 10px;
   width: 100%;
+}
+
+.poster-screen--invite .poster-cta--leave {
+  border-color: rgba(192, 57, 43, 0.72);
+  color: #c0392b;
+  flex: 0 0 auto;
+  min-width: 120px;
+}
+
+.poster-screen--invite .poster-cta--leave:hover,
+.poster-screen--invite .poster-cta--leave:focus-visible {
+  border-color: #e74c3c;
+  color: #e74c3c;
+  box-shadow: 6px 6px 0 rgba(192,57,43,0.22);
+  outline: none;
 }
 
 .poster-screen--invite .poster-cta {
@@ -2721,6 +2736,7 @@ body {
 }
 
 .poster-screen--invite .poster-cta--ready {
+  flex: 1;
   border-color: #e89a3c;
   color: #e89a3c;
 }

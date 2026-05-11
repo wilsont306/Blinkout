@@ -36,8 +36,9 @@ function getOrCreateName() {
 }
 
 export default function App() {
-  const [screen, setScreen]         = useState(() => getInviteCode() ? SCREEN.INVITE_LOBBY : SCREEN.LOBBY)
-  const [inviteCode, setInviteCode] = useState(() => getInviteCode() || null)
+  const [screen, setScreen]           = useState(() => getInviteCode() ? SCREEN.INVITE_LOBBY : SCREEN.LOBBY)
+  const [inviteCode, setInviteCode]   = useState(() => getInviteCode() || null)
+  const [inviteIsCreator, setInviteIsCreator] = useState(false)
   const [matchData, setMatchData]   = useState(null)
   const [resultData, setResultData] = useState(null)
   const [stats, setStats]           = useState({ wins: 0, losses: 0, streak: 0, bestHold: 0 })
@@ -244,6 +245,7 @@ export default function App() {
   function handleCreateInvite() {
     const code = crypto.randomUUID().slice(0, 8).toUpperCase()
     setInviteCode(code)
+    setInviteIsCreator(true)
     window.history.replaceState(null, '', `?invite=${code}`)
     setIsLeavingLobby(true)
     setTimeout(() => { setIsLeavingLobby(false); setScreen(SCREEN.INVITE_LOBBY) }, 380)
@@ -307,6 +309,7 @@ export default function App() {
           <InviteLobby
             playerName={playerName}
             roomCode={inviteCode}
+            isCreator={inviteIsCreator}
             camera={camera}
             blink={blink}
             onMatchStart={handleInviteMatchStart}
