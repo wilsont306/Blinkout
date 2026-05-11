@@ -2,10 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase.js'
 
 function getClientId() {
-  let id = localStorage.getItem('blinkout_client_id')
+  let id = localStorage.getItem('blinkduel_client_id')
   if (!id) {
-    id = crypto.randomUUID()
-    localStorage.setItem('blinkout_client_id', id)
+    id = localStorage.getItem('blinkout_client_id') || crypto.randomUUID()
+    localStorage.setItem('blinkduel_client_id', id)
   }
   return id
 }
@@ -261,5 +261,12 @@ export function useGame({
     })
   }, [])
 
-  return { connected, joinQueue, sendEAR, sendVideoFrame, sendBlink, forfeit, requestRematch, cancelRematch }
+  const startInviteMatch = useCallback((matchId, opponentHandle, opponentId) => {
+    const md = { matchId, myPlayerId: CLIENT_ID, opponentId, opponentName: opponentHandle }
+    matchDataRef.current = md
+    setupGameChannel(matchId, opponentHandle, opponentId)
+    cb.current.onMatchFound?.(md)
+  }, [setupGameChannel])
+
+  return { connected, joinQueue, sendEAR, sendVideoFrame, sendBlink, forfeit, requestRematch, cancelRematch, startInviteMatch }
 }

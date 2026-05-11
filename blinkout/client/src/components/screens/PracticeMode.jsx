@@ -136,7 +136,7 @@ export default function PracticeMode({ camera, blink, personalBest, onEnd }) {
           <small>return to lobby</small>
         </button>
 
-        <div className="poster-footnote">BlinkOut · Solo Training</div>
+        <div className="poster-footnote">Blink Duel · Solo Training</div>
         <div className="poster-footnote poster-footnote--right">No opponent</div>
       </div>
     </div>

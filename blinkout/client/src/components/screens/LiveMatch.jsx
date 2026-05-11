@@ -159,7 +159,7 @@ export default function LiveMatch({
         </div>
 
         <div className="poster-duel-cta">Step into the ring <small>press to begin the round</small></div>
-        <div className="poster-footnote">BlinkOut · Entry 04</div>
+        <div className="poster-footnote">Blink Duel · Entry 04</div>
         <div className="poster-footnote poster-footnote--right">No video leaves your device</div>
       </div>
     </div>

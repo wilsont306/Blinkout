@@ -2576,3 +2576,156 @@ body {
   border-color: rgba(232,154,60,0.85);
   box-shadow: 0 0 0 3px rgba(232,154,60,0.12);
 }
+
+/* ── Invite Lobby ─────────────────────────────────────────────────────────── */
+.poster-screen--invite {
+  background:
+    radial-gradient(circle at 50% 45%, #15110d 0%, #0c0a09 60%, #050403 100%);
+  color: #f5efe6;
+  animation: posterQueueIn 500ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.poster-card--invite {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(232,154,60,0.08), transparent 45%),
+    repeating-linear-gradient(0deg, rgba(245,239,230,0.045) 0 1px, transparent 1px 8px),
+    #0c0a09;
+  color: #f5efe6;
+  border-color: rgba(245,239,230,0.16);
+  box-shadow: inset 0 0 0 1px rgba(245,239,230,0.05), 0 30px 80px rgba(0,0,0,0.6);
+  gap: 20px;
+}
+
+.poster-screen--invite .poster-meta,
+.poster-screen--invite .poster-subline,
+.poster-screen--invite .poster-footnote {
+  color: rgba(245,239,230,0.55);
+}
+
+.poster-screen--invite .poster-kicker,
+.poster-screen--invite .poster-headline span {
+  color: #e89a3c;
+}
+
+.poster-screen--invite .poster-headline,
+.poster-screen--invite .poster-kicker {
+  border-color: rgba(232,154,60,0.65);
+}
+
+/* Players row */
+.invite-players {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  margin: 4px 0;
+}
+
+.invite-player {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid rgba(232,154,60,0.4);
+  border-radius: 8px;
+  background: rgba(232,154,60,0.04);
+  min-width: 0;
+}
+
+.invite-player--empty {
+  border-style: dashed;
+  opacity: 0.5;
+}
+
+.invite-player__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(245,239,230,0.45);
+}
+
+.invite-player__name {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: #f5efe6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invite-player__status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: rgba(245,239,230,0.4);
+  transition: color 200ms;
+}
+
+.invite-player__status.is-ready {
+  color: #4CAF50;
+}
+
+.invite-vs {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e89a3c;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+
+/* Copy link button */
+.invite-copy-btn {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 16px;
+  background: rgba(232,154,60,0.08);
+  border: 1px dashed rgba(232,154,60,0.45);
+  border-radius: 8px;
+  color: #e89a3c;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 150ms, border-color 150ms;
+}
+
+.invite-copy-btn:hover {
+  background: rgba(232,154,60,0.14);
+  border-color: rgba(232,154,60,0.7);
+}
+
+.invite-copy-btn small {
+  font-size: 10px;
+  color: rgba(245,239,230,0.35);
+  word-break: break-all;
+  text-align: left;
+}
+
+/* Actions */
+.invite-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.poster-screen--invite .poster-cta {
+  background: #050403;
+  color: #f5efe6;
+  border-color: rgba(232,154,60,0.65);
+}
+
+.poster-screen--invite .poster-cta--ready {
+  border-color: #e89a3c;
+  color: #e89a3c;
+}
+
+.poster-screen--invite .poster-cta--ready:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

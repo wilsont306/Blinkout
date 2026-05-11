@@ -10,14 +10,20 @@ import PreMatch from './components/screens/PreMatch.jsx'
 import LiveMatch from './components/screens/LiveMatch.jsx'
 import Result from './components/screens/Result.jsx'
 import PracticeMode from './components/screens/PracticeMode.jsx'
+import InviteLobby from './components/screens/InviteLobby.jsx'
 
 const SCREEN = {
-  LOBBY:       'lobby',
-  MATCHMAKING: 'matchmaking',
-  PREMATCH:    'prematch',
-  MATCH:       'match',
-  RESULT:      'result',
-  PRACTICE:    'practice',
+  LOBBY:        'lobby',
+  MATCHMAKING:  'matchmaking',
+  INVITE_LOBBY: 'invite_lobby',
+  PREMATCH:     'prematch',
+  MATCH:        'match',
+  RESULT:       'result',
+  PRACTICE:     'practice',
+}
+
+function getInviteCode() {
+  return new URLSearchParams(window.location.search).get('invite')
 }
 
 function getOrCreateName() {
@@ -30,7 +36,8 @@ function getOrCreateName() {
 }
 
 export default function App() {
-  const [screen, setScreen]         = useState(SCREEN.LOBBY)
+  const [screen, setScreen]         = useState(() => getInviteCode() ? SCREEN.INVITE_LOBBY : SCREEN.LOBBY)
+  const [inviteCode, setInviteCode] = useState(() => getInviteCode() || null)
   const [matchData, setMatchData]   = useState(null)
   const [resultData, setResultData] = useState(null)
   const [stats, setStats]           = useState({ wins: 0, losses: 0, streak: 0, bestHold: 0 })
@@ -113,7 +120,7 @@ export default function App() {
 
   const {
     connected, joinQueue, sendEAR, sendVideoFrame, sendBlink,
-    forfeit, requestRematch, cancelRematch,
+    forfeit, requestRematch, cancelRematch, startInviteMatch,
   } = useGame({
     onMatchFound:         handleMatchFound,
     onMatchEnd:           handleMatchEnd,
@@ -234,6 +241,25 @@ export default function App() {
     setScreen(SCREEN.LOBBY)
   }
 
+  function handleCreateInvite() {
+    const code = crypto.randomUUID().slice(0, 8).toUpperCase()
+    setInviteCode(code)
+    window.history.replaceState(null, '', `?invite=${code}`)
+    setIsLeavingLobby(true)
+    setTimeout(() => { setIsLeavingLobby(false); setScreen(SCREEN.INVITE_LOBBY) }, 380)
+  }
+
+  function handleInviteMatchStart(matchId, opponentHandle, opponentId) {
+    window.history.replaceState(null, '', window.location.pathname)
+    startInviteMatch(matchId, opponentHandle, opponentId)
+  }
+
+  function handleLeaveInvite() {
+    window.history.replaceState(null, '', window.location.pathname)
+    setInviteCode(null)
+    setScreen(SCREEN.LOBBY)
+  }
+
   function handleStartPractice() {
     setIsLeavingLobby(true)
     setTimeout(() => {
@@ -270,9 +296,19 @@ export default function App() {
             connected={connected}
             practiceBest={practiceBest}
             onFindOpponent={handleFindOpponent}
+            onCreateInvite={handleCreateInvite}
             onStartPractice={handleStartPractice}
             onSetName={handleSetName}
             isLeaving={isLeavingLobby}
+          />
+        )}
+
+        {screen === SCREEN.INVITE_LOBBY && inviteCode && (
+          <InviteLobby
+            playerName={playerName}
+            roomCode={inviteCode}
+            onMatchStart={handleInviteMatchStart}
+            onLeave={handleLeaveInvite}
           />
         )}
 
