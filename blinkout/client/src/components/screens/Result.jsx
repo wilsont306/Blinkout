@@ -21,15 +21,16 @@ export default function Result({
     </div>
   )
 
+  const safeStats = stats ?? {}
   const { winner, myPlayerId, reason } = resultData
   const opponentName = resultData.opponentName || 'Opponent'
   const blinkTimestamp = Number.isFinite(resultData.blinkTimestamp) ? resultData.blinkTimestamp : 0
   const duration = Number.isFinite(resultData.duration) ? resultData.duration : blinkTimestamp
   const isWin = typeof resultData.isWin === 'boolean' ? resultData.isWin : winner === myPlayerId
   const holdLabel = `${(blinkTimestamp / 1000).toFixed(2)}s`
-  const wins = Number.isFinite(stats?.wins) ? stats.wins : 0
-  const losses = Number.isFinite(stats?.losses) ? stats.losses : 0
-  const streak = Number.isFinite(stats?.streak) ? stats.streak : 0
+  const wins = Number.isFinite(safeStats.wins) ? safeStats.wins : 0
+  const losses = Number.isFinite(safeStats.losses) ? safeStats.losses : 0
+  const streak = Number.isFinite(safeStats.streak) ? safeStats.streak : 0
 
   const rematchLabel = rematchStatus === 'requested'
     ? `Waiting for ${opponentName}…`
