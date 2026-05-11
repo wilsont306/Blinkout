@@ -1,0 +1,102 @@
+export default function Result({
+  resultData,
+  playerName,
+  stats,
+  rematchStatus = null,   // null | 'requested' | 'opponent-wants' | 'declined'
+  onRematch,
+  onCancelRematch,
+  onLeave,
+}) {
+  if (!resultData) return null
+
+  const { winner, duration, blinkTimestamp, myPlayerId, opponentName } = resultData
+  const isWin = winner === myPlayerId
+
+  const rematchLabel = rematchStatus === 'requested'
+    ? `Waiting for ${opponentName}…`
+    : rematchStatus === 'opponent-wants'
+    ? `${opponentName} wants a rematch!`
+    : rematchStatus === 'declined'
+    ? 'Opponent left'
+    : `Rematch vs ${opponentName}`
+
+  const rematchSub = rematchStatus === 'requested'
+    ? 'click to cancel'
+    : rematchStatus === 'opponent-wants'
+    ? 'click to confirm'
+    : rematchStatus === 'declined'
+    ? 're-queue to find another'
+    : 'same opponent · direct rematch'
+
+  const handleRematchClick = () => {
+    if (rematchStatus === 'requested') onCancelRematch?.()
+    else if (rematchStatus !== 'declined') onRematch?.()
+  }
+
+  return (
+    <div className={`poster-screen poster-screen--result${isWin ? '' : ' poster-screen--result-lose'}`}>
+      <div className="poster-card poster-card--result">
+        <div className="poster-meta">Browser Coliseum · 10-May-MMXXVI · Best of Three Lives</div>
+
+        <div className="poster-kicker">
+          {isWin ? 'Victory' : 'Defeat'}
+        </div>
+
+        <h1 className="poster-headline">
+          {isWin
+            ? <><span className="result-dim">Eyes</span>{' '}<em>open.</em></>
+            : <><span className="result-dim">You</span>{' '}<em>blinked.</em></>}
+        </h1>
+
+        <p className="poster-subline">
+          {isWin
+            ? `${opponentName} lost their final life · ${(blinkTimestamp / 1000).toFixed(2)}s`
+            : `You lost your final life · ${(blinkTimestamp / 1000).toFixed(2)}s`}
+        </p>
+
+        <div className="result-stats-strip">
+          <div>
+            <span>Hold time</span>
+            <strong>{duration != null ? `${(duration / 1000).toFixed(2)}s` : '—'}</strong>
+          </div>
+          <div>
+            <span>{isWin ? 'Win streak' : 'Loss streak'}</span>
+            <strong>{isWin ? stats.streak : stats.losses}</strong>
+          </div>
+          <div>
+            <span>Final strike</span>
+            <strong>{blinkTimestamp != null ? `${(blinkTimestamp / 1000).toFixed(2)}s` : '—'}</strong>
+          </div>
+          <div>
+            <span>Daily rank</span>
+            <strong>—</strong>
+          </div>
+        </div>
+
+        <div className="result-cta-row">
+          <button
+            className={`poster-cta poster-cta--result result-cta--rematch${rematchStatus === 'requested' ? ' poster-cta--waiting' : ''}${rematchStatus === 'opponent-wants' ? ' poster-cta--glow' : ''}`}
+            type="button"
+            onClick={handleRematchClick}
+            disabled={rematchStatus === 'declined'}
+          >
+            {rematchLabel}
+            <small>{rematchSub}</small>
+          </button>
+
+          <button
+            className="poster-cta poster-cta--result result-cta--leave"
+            type="button"
+            onClick={onLeave}
+          >
+            Leave
+            <small>return to lobby</small>
+          </button>
+        </div>
+
+        <div className="poster-footnote">BlinkOut · {isWin ? 'Winner' : 'Eliminated'}</div>
+        <div className="poster-footnote poster-footnote--right">{playerName}</div>
+      </div>
+    </div>
+  )
+}
