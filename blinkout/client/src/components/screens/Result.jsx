@@ -5,6 +5,7 @@ export default function Result({
   rematchStatus = null,   // null | 'requested' | 'opponent-wants' | 'declined'
   onRematch,
   onCancelRematch,
+  onNewMatch,
   onLeave = () => {},
 }) {
   if (!resultData) return (
@@ -35,18 +36,18 @@ export default function Result({
   const rematchLabel = rematchStatus === 'requested'
     ? `Waiting for ${opponentName}…`
     : rematchStatus === 'opponent-wants'
-    ? `${opponentName} wants a rematch!`
+    ? `Accept rematch`
     : rematchStatus === 'declined'
     ? 'Opponent left'
-    : `Rematch vs ${opponentName}`
+    : `Ask ${opponentName} for rematch`
 
   const rematchSub = rematchStatus === 'requested'
     ? 'click to cancel'
     : rematchStatus === 'opponent-wants'
-    ? 'click to confirm'
+    ? `${opponentName} is waiting`
     : rematchStatus === 'declined'
-    ? 're-queue to find another'
-    : 'same opponent · direct rematch'
+    ? 'start a new queue instead'
+    : 'same opponent · both must accept'
 
   const handleRematchClick = () => {
     if (rematchStatus === 'requested') onCancelRematch?.()
@@ -107,12 +108,21 @@ export default function Result({
           </button>
 
           <button
+            className="poster-cta poster-cta--result result-cta--new"
+            type="button"
+            onClick={onNewMatch}
+          >
+            New match
+            <small>find someone else</small>
+          </button>
+
+          <button
             className="poster-cta poster-cta--result result-cta--leave"
             type="button"
             onClick={onLeave}
           >
-            Leave
-            <small>return to lobby</small>
+            Back to queue
+            <small>return to menu</small>
           </button>
         </div>
 
