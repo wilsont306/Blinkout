@@ -304,7 +304,7 @@ export default function App() {
             sendVideoFrame={sendVideoFrame}
             opponentEAR={opponentEAR}
             opponentFrame={opponentFrame}
-            lives={{ mine: 1, opponent: 1 }}
+            lives={{ mine: 3, opponent: 3 }}
           />
         )}
 
