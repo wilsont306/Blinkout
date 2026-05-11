@@ -83,6 +83,7 @@ export default function InviteLobby({
         }
       })
       .on('broadcast', { event: 'VIDEO_FRAME' }, ({ payload }) => {
+        if (payload.fromId === CLIENT_ID) return
         setOpponentFrame(payload.frame)
       })
 
@@ -108,7 +109,7 @@ export default function InviteLobby({
       c.getContext('2d').drawImage(videoEl, 0, 0, 96, 72)
       channelRef.current.send({
         type: 'broadcast', event: 'VIDEO_FRAME',
-        payload: { frame: c.toDataURL('image/jpeg', 0.5) },
+        payload: { frame: c.toDataURL('image/jpeg', 0.5), fromId: CLIENT_ID },
       })
       lastFrameRef.current = now
     }, 100)
