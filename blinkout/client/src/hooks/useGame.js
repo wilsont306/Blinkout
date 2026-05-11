@@ -33,6 +33,7 @@ export function useGame({
   const gameChRef    = useRef(null)
   const queueChRef   = useRef(null)
   const matchDataRef = useRef(null)
+  const matchEndedRef = useRef(false)
   const myRematch    = useRef(false)
   const oppRematch   = useRef(false)
 
@@ -54,9 +55,13 @@ export function useGame({
     removeChannel(gameChRef)
     myRematch.current  = false
     oppRematch.current = false
+    matchEndedRef.current = false
 
     const ch = supabase.channel(`game:${matchId}`, {
-      config: { broadcast: { self: false } },
+      config: {
+        broadcast: { self: false },
+        presence: { key: CLIENT_ID },
+      },
     })
 
     ch
@@ -70,6 +75,7 @@ export function useGame({
         cb.current.onOpponentVideoFrame?.({ frame: payload.frame })
       })
       .on('broadcast', { event: 'BLINKED' }, ({ payload }) => {
+        matchEndedRef.current = true
         cb.current.onMatchEnd?.({
           winner:         CLIENT_ID,
           loser:          payload.fromId,
@@ -79,12 +85,24 @@ export function useGame({
         })
       })
       .on('broadcast', { event: 'FORFEIT' }, ({ payload }) => {
+        matchEndedRef.current = true
         cb.current.onMatchEnd?.({
           winner:         CLIENT_ID,
           loser:          payload.fromId,
           matchId,
           blinkTimestamp: 0,
           reason:         payload.reason ?? 'forfeit',
+        })
+      })
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        if (matchEndedRef.current || key !== opponentId) return
+        matchEndedRef.current = true
+        cb.current.onMatchEnd?.({
+          winner: CLIENT_ID,
+          loser: opponentId,
+          matchId,
+          blinkTimestamp: 0,
+          reason: 'left-page',
         })
       })
       .on('broadcast', { event: 'REMATCH_REQUEST' }, () => {
@@ -106,7 +124,11 @@ export function useGame({
         }
       })
 
-    ch.subscribe()
+    ch.subscribe(status => {
+      if (status === 'SUBSCRIBED') {
+        ch.track({ clientId: CLIENT_ID, joinedAt: Date.now() })
+      }
+    })
     gameChRef.current = ch
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -227,6 +249,7 @@ export function useGame({
 
   // Call when I blinked (I lose). holdMs = time from MATCH_START to now.
   const sendBlink = useCallback((matchId, holdMs = 0) => {
+    matchEndedRef.current = true
     gameChRef.current?.send({
       type:    'broadcast',
       event:   'BLINKED',
@@ -242,6 +265,7 @@ export function useGame({
   }, [])
 
   const forfeit = useCallback((matchId, reason = 'user') => {
+    matchEndedRef.current = true
     gameChRef.current?.send({
       type:    'broadcast',
       event:   'FORFEIT',

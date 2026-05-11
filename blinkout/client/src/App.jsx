@@ -175,19 +175,21 @@ export default function App() {
     setOpponentLives(3)
   }, [matchData?.matchId])
 
-  // Auto-forfeit when tab is hidden during MATCH (not during prematch countdown)
+  // Auto-forfeit when tab is hidden during countdown or live match.
   useEffect(() => {
+    const matchIsActive = screen === SCREEN.PREMATCH || screen === SCREEN.MATCH
+
     function autoForfeit(reason) {
-      if (screen !== SCREEN.MATCH || !matchData?.matchId || autoForfeitRef.current) return
+      if (!matchIsActive || !matchData?.matchId || autoForfeitRef.current) return
       autoForfeitRef.current = true
       setBlinkActive(false)
       forfeit(matchData.matchId, reason)
     }
 
-    if (screen === SCREEN.MATCH && document.hidden) autoForfeit('tab-hidden')
+    if (matchIsActive && document.hidden) autoForfeit('tab-hidden')
 
     function handleVisibilityChange() {
-      if (screen === SCREEN.MATCH && document.hidden) autoForfeit('tab-hidden')
+      if (document.hidden) autoForfeit('tab-hidden')
     }
     function handlePageLeave() { autoForfeit('left-page') }
 
