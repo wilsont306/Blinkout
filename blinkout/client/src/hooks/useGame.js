@@ -26,6 +26,7 @@ export function useGame({
   onOpponentVideoFrame,
   onRematchRequested,
   onRematchDeclined,
+  onOpponentStrike,
 }) {
   const [connected, setConnected] = useState(false)
 
@@ -38,7 +39,7 @@ export function useGame({
   // Always-current callback refs — never stale
   const cb = useRef({})
   useEffect(() => {
-    cb.current = { onMatchFound, onMatchEnd, onOpponentEAR, onOpponentVideoFrame, onRematchRequested, onRematchDeclined }
+    cb.current = { onMatchFound, onMatchEnd, onOpponentEAR, onOpponentVideoFrame, onRematchRequested, onRematchDeclined, onOpponentStrike }
   })
 
   // Connection health via a heartbeat channel
@@ -59,6 +60,9 @@ export function useGame({
     })
 
     ch
+      .on('broadcast', { event: 'STRIKE' }, ({ payload }) => {
+        cb.current.onOpponentStrike?.({ livesLeft: payload.livesLeft })
+      })
       .on('broadcast', { event: 'EAR_UPDATE' }, ({ payload }) => {
         cb.current.onOpponentEAR?.({ ear: payload.ear })
       })
@@ -213,6 +217,14 @@ export function useGame({
     })
   }, [])
 
+  const sendStrike = useCallback((_matchId, livesLeft) => {
+    gameChRef.current?.send({
+      type:    'broadcast',
+      event:   'STRIKE',
+      payload: { fromId: CLIENT_ID, livesLeft },
+    })
+  }, [])
+
   // Call when I blinked (I lose). holdMs = time from MATCH_START to now.
   const sendBlink = useCallback((matchId, holdMs = 0) => {
     gameChRef.current?.send({
@@ -268,5 +280,5 @@ export function useGame({
     cb.current.onMatchFound?.(md)
   }, [setupGameChannel])
 
-  return { connected, joinQueue, sendEAR, sendVideoFrame, sendBlink, forfeit, requestRematch, cancelRematch, startInviteMatch }
+  return { connected, joinQueue, sendEAR, sendVideoFrame, sendBlink, sendStrike, forfeit, requestRematch, cancelRematch, startInviteMatch }
 }
