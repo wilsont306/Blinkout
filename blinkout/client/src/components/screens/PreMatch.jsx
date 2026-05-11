@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import CameraPreview from '../camera/CameraPreview.jsx'
 
 const SEQUENCE = [3, 2, 1, 'GO']
 
-export default function PreMatch({ camera, blink, matchData, playerName, onMatchStart }) {
+export default function PreMatch({ camera, blink, matchData, playerName, onMatchStart, onNoFaceForfeit }) {
   const [step, setStep] = useState(0)
   const [flashing, setFlashing] = useState(false)
+  const faceDetectedRef = useRef(false)
 
   const { attachRef, stream } = camera
   const { faceDetected, loading, eyeBoxes, blinking } = blink
   const current = SEQUENCE[step]
+
+  useEffect(() => {
+    faceDetectedRef.current = faceDetected
+  }, [faceDetected])
 
   useEffect(() => {
     if (step >= SEQUENCE.length - 1) {
@@ -17,6 +22,10 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
       setFlashing(true)
       const t = setTimeout(() => {
         setFlashing(false)
+        if (!faceDetectedRef.current) {
+          onNoFaceForfeit?.()
+          return
+        }
         onMatchStart()
       }, 500)
       return () => clearTimeout(t)
