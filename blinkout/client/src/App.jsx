@@ -52,12 +52,16 @@ export default function App() {
   const [practiceBest, setPracticeBest]     = useState(() =>
     parseInt(localStorage.getItem('blinkout_solo_best') || '0', 10)
   )
+  const [myLives, setMyLives]           = useState(3)
+  const [opponentLives, setOpponentLives] = useState(3)
 
-  const playerNameRef   = useRef(playerName)
-  const queueAdvanceRef = useRef(null)
-  const autoForfeitRef  = useRef(false)
-  const blinkSentRef    = useRef(false)
-  const matchStartMsRef = useRef(null)
+  const playerNameRef     = useRef(playerName)
+  const queueAdvanceRef   = useRef(null)
+  const autoForfeitRef    = useRef(false)
+  const blinkSentRef      = useRef(false)
+  const matchStartMsRef   = useRef(null)
+  const myLivesRef        = useRef(3)
+  const blinkCooldownRef  = useRef(false)
 
   useEffect(() => { playerNameRef.current = playerName }, [playerName])
 
@@ -81,7 +85,7 @@ export default function App() {
   const handleMatchEnd = useCallback((data) => {
     setBlinkActive(false)
     setOpponentFrame(null)
-    setRematchStatus(null)
+    setRematchStatus(data.reason === 'forfeit' ? 'declined' : null)
     const isWin = data.winner === CLIENT_ID
     setResultData({ ...data, myPlayerId: CLIENT_ID, opponentName: matchData?.opponentName ?? 'Opponent', isWin })
     setScreen(SCREEN.RESULT)
@@ -119,8 +123,12 @@ export default function App() {
     setRematchStatus('declined')
   }, [])
 
+  const handleOpponentStrike = useCallback(({ livesLeft }) => {
+    setOpponentLives(livesLeft)
+  }, [])
+
   const {
-    connected, joinQueue, sendEAR, sendVideoFrame, sendBlink,
+    connected, joinQueue, sendEAR, sendVideoFrame, sendBlink, sendStrike,
     forfeit, requestRematch, cancelRematch, startInviteMatch,
   } = useGame({
     onMatchFound:         handleMatchFound,
@@ -129,6 +137,7 @@ export default function App() {
     onOpponentVideoFrame: handleOpponentVideoFrame,
     onRematchRequested:   handleRematchRequested,
     onRematchDeclined:    handleRematchDeclined,
+    onOpponentStrike:     handleOpponentStrike,
   })
 
   useEffect(() => {
@@ -136,8 +145,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    autoForfeitRef.current = false
-    blinkSentRef.current   = false
+    autoForfeitRef.current   = false
+    blinkSentRef.current     = false
+    blinkCooldownRef.current = false
+    myLivesRef.current       = 3
+    setMyLives(3)
+    setOpponentLives(3)
   }, [matchData?.matchId])
 
   // Auto-forfeit when tab is hidden during MATCH (not during prematch countdown)
@@ -171,13 +184,24 @@ export default function App() {
     videoEl: camera.videoEl,
     enabled: blinkActive,
     onBlink: useCallback(() => {
-      if (!matchData?.matchId || blinkSentRef.current) return
-      blinkSentRef.current = true
-      const holdMs = matchStartMsRef.current
-        ? Math.max(0, Date.now() - matchStartMsRef.current)
-        : 0
-      sendBlink(matchData.matchId, holdMs)
-    }, [matchData?.matchId, sendBlink]),
+      if (!matchData?.matchId || blinkSentRef.current || blinkCooldownRef.current) return
+
+      if (myLivesRef.current <= 1) {
+        // Last life — end the match
+        blinkSentRef.current = true
+        const holdMs = matchStartMsRef.current
+          ? Math.max(0, Date.now() - matchStartMsRef.current)
+          : 0
+        sendBlink(matchData.matchId, holdMs)
+      } else {
+        // Strike — lose a life and continue after cooldown
+        blinkCooldownRef.current = true
+        myLivesRef.current -= 1
+        setMyLives(myLivesRef.current)
+        sendStrike(matchData.matchId, myLivesRef.current)
+        setTimeout(() => { blinkCooldownRef.current = false }, 2000)
+      }
+    }, [matchData?.matchId, sendBlink, sendStrike]),
   })
 
   // ── Flow handlers ─────────────────────────────────────────────
@@ -356,7 +380,7 @@ export default function App() {
             sendVideoFrame={sendVideoFrame}
             opponentEAR={opponentEAR}
             opponentFrame={opponentFrame}
-            lives={{ mine: 1, opponent: 1 }}
+            lives={{ mine: myLives, opponent: opponentLives }}
             onForfeit={handleForfeit}
           />
         )}

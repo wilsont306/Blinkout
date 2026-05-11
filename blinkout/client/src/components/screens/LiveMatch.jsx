@@ -11,7 +11,7 @@ export default function LiveMatch({
   sendVideoFrame,
   opponentEAR = 0.3,
   opponentFrame = null,
-  lives = { mine: 1, opponent: 1 },
+  lives = { mine: 3, opponent: 3 },
   onForfeit,
 }) {
   const [elapsed, setElapsed] = useState(0)
