@@ -9,6 +9,7 @@ export default function ResultCrashFallback() {
 
   const isWin = lastResult?.isWin !== false
   const opponentName = lastResult?.opponentName || 'Opponent'
+  const goHome = () => window.location.assign('/')
 
   return (
     <div className={`poster-screen poster-screen--result${isWin ? '' : ' poster-screen--result-lose'}`}>
@@ -24,8 +25,16 @@ export default function ResultCrashFallback() {
           {isWin ? `${opponentName} lost the stare.` : 'The match ended.'}
         </p>
         <div className="result-cta-row">
-          <button className="poster-cta poster-cta--result result-cta--leave" type="button" onClick={() => window.location.assign('/')}>
-            Leave
+          <button className="poster-cta poster-cta--result result-cta--rematch" type="button" disabled>
+            Rematch unavailable
+            <small>reload required</small>
+          </button>
+          <button className="poster-cta poster-cta--result result-cta--new" type="button" onClick={goHome}>
+            New queue
+            <small>restart matchmaking</small>
+          </button>
+          <button className="poster-cta poster-cta--result result-cta--leave" type="button" onClick={goHome}>
+            Back to queue
             <small>return to lobby</small>
           </button>
         </div>

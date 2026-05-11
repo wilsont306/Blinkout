@@ -71,8 +71,14 @@ export default function Result({
 
         <p className="poster-subline">
           {isWin
-            ? `${opponentName} blinked · held for ${holdLabel}`
-            : reason === 'forfeit'
+            ? reason === 'no-face'
+              ? `${opponentName} had no face detected when the round began`
+              : reason === 'forfeit' || reason === 'left-page' || reason === 'tab-hidden'
+              ? `${opponentName} left the match`
+              : `${opponentName} blinked · held for ${holdLabel}`
+            : reason === 'no-face'
+            ? 'No face detected when the round began'
+            : reason === 'forfeit' || reason === 'left-page' || reason === 'tab-hidden'
             ? 'You left the match'
             : `You blinked · held for ${holdLabel}`}
         </p>

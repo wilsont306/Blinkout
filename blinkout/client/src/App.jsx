@@ -256,6 +256,23 @@ export default function App() {
     setScreen(SCREEN.MATCH)
   }
 
+  function handleNoFaceForfeit() {
+    if (matchData?.matchId) forfeit(matchData.matchId, 'no-face')
+    setBlinkActive(false)
+    setOpponentFrame(null)
+    setResultData({
+      winner: matchData?.opponentId ?? 'opponent',
+      loser: CLIENT_ID,
+      matchId: matchData?.matchId,
+      myPlayerId: CLIENT_ID,
+      opponentName: matchData?.opponentName ?? 'Opponent',
+      isWin: false,
+      blinkTimestamp: 0,
+      reason: 'no-face',
+    })
+    setScreen(SCREEN.RESULT)
+  }
+
   function handleRequestRematch() {
     if (resultData?.matchId) {
       setRematchStatus('requested')
@@ -397,6 +414,7 @@ export default function App() {
             matchData={matchData}
             playerName={playerName}
             onMatchStart={handleMatchStart}
+            onNoFaceForfeit={handleNoFaceForfeit}
           />
         )}
 
