@@ -11,7 +11,8 @@ export default function LiveMatch({
   sendVideoFrame,
   opponentEAR = 0.3,
   opponentFrame = null,
-  lives = { mine: 3, opponent: 3 },
+  lives = { mine: 1, opponent: 1 },
+  onForfeit,
 }) {
   const [elapsed, setElapsed] = useState(0)
   const [alertVisible, setAlertVisible] = useState(false)
@@ -158,7 +159,14 @@ export default function LiveMatch({
           </DuelCard>
         </div>
 
-        <div className="poster-duel-cta">Step into the ring <small>press to begin the round</small></div>
+        <div className="poster-duel-cta">
+          Don't blink. <small>first to blink loses</small>
+          {onForfeit && (
+            <button className="duel-forfeit-btn" type="button" onClick={onForfeit}>
+              Leave
+            </button>
+          )}
+        </div>
         <div className="poster-footnote">Blink Duel · Entry 04</div>
         <div className="poster-footnote poster-footnote--right">No video leaves your device</div>
       </div>

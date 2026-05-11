@@ -83,7 +83,7 @@ export default function App() {
     setOpponentFrame(null)
     setRematchStatus(null)
     const isWin = data.winner === CLIENT_ID
-    setResultData({ ...data, myPlayerId: CLIENT_ID, opponentName: matchData?.opponentName, isWin })
+    setResultData({ ...data, myPlayerId: CLIENT_ID, opponentName: matchData?.opponentName ?? 'Opponent', isWin })
     setScreen(SCREEN.RESULT)
     setStats(prev => {
       const next = {
@@ -239,7 +239,17 @@ export default function App() {
     if (matchData?.matchId) forfeit(matchData.matchId, 'user')
     setBlinkActive(false)
     setOpponentFrame(null)
-    setScreen(SCREEN.LOBBY)
+    setResultData({
+      winner: matchData?.opponentId ?? 'opponent',
+      loser: CLIENT_ID,
+      matchId: matchData?.matchId,
+      myPlayerId: CLIENT_ID,
+      opponentName: matchData?.opponentName ?? 'Opponent',
+      isWin: false,
+      blinkTimestamp: 0,
+      reason: 'forfeit',
+    })
+    setScreen(SCREEN.RESULT)
   }
 
   function handleCreateInvite() {
@@ -346,7 +356,8 @@ export default function App() {
             sendVideoFrame={sendVideoFrame}
             opponentEAR={opponentEAR}
             opponentFrame={opponentFrame}
-            lives={{ mine: 3, opponent: 3 }}
+            lives={{ mine: 1, opponent: 1 }}
+            onForfeit={handleForfeit}
           />
         )}
 

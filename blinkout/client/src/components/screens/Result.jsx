@@ -9,7 +9,7 @@ export default function Result({
 }) {
   if (!resultData) return null
 
-  const { winner, duration, blinkTimestamp, myPlayerId, opponentName } = resultData
+  const { winner, duration, blinkTimestamp, myPlayerId, opponentName, reason } = resultData
   const isWin = winner === myPlayerId
 
   const rematchLabel = rematchStatus === 'requested'
@@ -50,8 +50,10 @@ export default function Result({
 
         <p className="poster-subline">
           {isWin
-            ? `${opponentName} lost their final life · ${(blinkTimestamp / 1000).toFixed(2)}s`
-            : `You lost your final life · ${(blinkTimestamp / 1000).toFixed(2)}s`}
+            ? `${opponentName} blinked · held for ${(blinkTimestamp / 1000).toFixed(2)}s`
+            : reason === 'forfeit'
+            ? 'You left the match'
+            : `You blinked · held for ${(blinkTimestamp / 1000).toFixed(2)}s`}
         </p>
 
         <div className="result-stats-strip">
