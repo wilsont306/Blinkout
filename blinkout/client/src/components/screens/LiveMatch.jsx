@@ -2,6 +2,9 @@ import { useEffect, useState, useRef } from 'react'
 import CameraPreview from '../camera/CameraPreview.jsx'
 import EARBar from '../camera/EARBar.jsx'
 
+const BAD_CAMERA_LOSS_MS = 1000
+const BAD_CAMERA_WARNINGS = new Set(['bad-lighting', 'bad-glare'])
+
 export default function LiveMatch({
   camera,
   blink,
@@ -24,6 +27,8 @@ export default function LiveMatch({
   const earRef = useRef(ear)
   const faceDetectedRef = useRef(faceDetected)
   const warningRef = useRef(warning)
+  const onForfeitRef = useRef(onForfeit)
+  const badCameraSinceRef = useRef(null)
 
   // Match timer
   useEffect(() => {
@@ -39,12 +44,19 @@ export default function LiveMatch({
     warningRef.current = warning
   }, [ear, faceDetected, warning])
 
+  useEffect(() => {
+    onForfeitRef.current = onForfeit
+  }, [onForfeit])
+
   // Send a steady EAR signal so covered/missing faces can strike like a blink.
   useEffect(() => {
     if (!matchData?.matchId) return
 
     const t = setInterval(() => {
-      const shouldStrikeAsCovered = !faceDetectedRef.current || warningRef.current === 'covered'
+      const shouldStrikeAsCovered =
+        !faceDetectedRef.current ||
+        warningRef.current === 'covered' ||
+        BAD_CAMERA_WARNINGS.has(warningRef.current)
       sendEAR(matchData.matchId, shouldStrikeAsCovered ? 0 : earRef.current, {
         covered: shouldStrikeAsCovered,
       })
@@ -62,18 +74,42 @@ export default function LiveMatch({
 
       const canvas = frameCanvasRef.current ?? document.createElement('canvas')
       frameCanvasRef.current = canvas
-      canvas.width = 480
-      canvas.height = Math.round(480 * (video.videoHeight / video.videoWidth))
+      canvas.width = 640
+      canvas.height = Math.round(640 * (video.videoHeight / video.videoWidth))
 
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      sendVideoFrame(matchData.matchId, canvas.toDataURL('image/jpeg', 0.72))
-    }, 300)
+      sendVideoFrame(matchData.matchId, canvas.toDataURL('image/jpeg', 0.88))
+    }, 120)
 
     return () => clearInterval(t)
   }, [camera.videoEl, matchData?.matchId, sendVideoFrame])
+
+  // Bad lighting/glare can hide blinks. Give it one second, then forfeit.
+  useEffect(() => {
+    if (!matchData?.matchId) return
+
+    const t = setInterval(() => {
+      const currentWarning = warningRef.current
+      if (!BAD_CAMERA_WARNINGS.has(currentWarning)) {
+        badCameraSinceRef.current = null
+        return
+      }
+
+      if (!badCameraSinceRef.current) {
+        badCameraSinceRef.current = Date.now()
+        return
+      }
+
+      if (Date.now() - badCameraSinceRef.current >= BAD_CAMERA_LOSS_MS) {
+        onForfeitRef.current?.(currentWarning)
+      }
+    }, 120)
+
+    return () => clearInterval(t)
+  }, [matchData?.matchId])
 
   // Show alert when EAR nears threshold
   useEffect(() => {
@@ -102,7 +138,9 @@ export default function LiveMatch({
           <strong aria-label="Match timer" aria-live="off">{formatTime(elapsed)}</strong>
           <em>
             {warning === 'bad-lighting'
-              ? 'Bad lighting'
+              ? 'Too dark'
+              : warning === 'bad-glare'
+              ? 'Too much glare'
               : warning === 'covered'
               ? 'Face covered'
               : alertVisible

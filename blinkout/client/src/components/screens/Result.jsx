@@ -46,7 +46,7 @@ export default function Result({
     : rematchStatus === 'opponent-wants'
     ? `${opponentName} is waiting`
     : rematchStatus === 'declined'
-    ? 'start a new queue instead'
+    ? 'find a new match'
     : 'same opponent · both must accept'
 
   const handleRematchClick = () => {
@@ -127,8 +127,8 @@ export default function Result({
             type="button"
             onClick={onLeave}
           >
-            Back to queue
-            <small>return to menu</small>
+            Back to lobby
+            <small>return to lobby</small>
           </button>
         </div>
 

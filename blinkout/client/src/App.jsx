@@ -82,6 +82,7 @@ export default function App() {
   }, [])
 
   const handleMatchEnd = useCallback((data) => {
+    autoForfeitRef.current = true  // block any auto-forfeit race after match ends
     const payload = data && typeof data === 'object' ? data : {}
     const blinkTimestamp = Number.isFinite(payload.blinkTimestamp) ? payload.blinkTimestamp : 0
     const duration = Number.isFinite(payload.duration) ? payload.duration : blinkTimestamp
