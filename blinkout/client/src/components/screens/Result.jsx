@@ -94,7 +94,7 @@ export default function Result({
           </button>
         </div>
 
-        <div className="poster-footnote">BlinkOut · {isWin ? 'Winner' : 'Eliminated'}</div>
+        <div className="poster-footnote">Blink Duel · {isWin ? 'Winner' : 'Eliminated'}</div>
         <div className="poster-footnote poster-footnote--right">{playerName}</div>
       </div>
     </div>

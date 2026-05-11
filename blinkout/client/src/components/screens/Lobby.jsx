@@ -26,6 +26,7 @@ export default function Lobby({
   connected,
   practiceBest = 0,
   onFindOpponent,
+  onCreateInvite,
   onStartPractice,
   onSetName,
   isLeaving = false,
@@ -116,7 +117,7 @@ export default function Lobby({
   return (
     <div className={`entrance-a${isLeaving ? ' entrance-a--leaving' : ''}`}>
       <div className="entrance-a__vignette" />
-      <div className="entrance-a__system"><span /> BLINKOUT / ENTRANCE</div>
+      <div className="entrance-a__system"><span /> BLINK DUEL / ENTRANCE</div>
       <div className="entrance-a__status">
         <span className={permission === 'granted' ? 'is-live' : ''} />
         {permission === 'granted' ? 'CAMERA LIVE · NO VIDEO LEAVES YOUR DEVICE' : 'STAND BY · CALIBRATING'}
@@ -248,7 +249,7 @@ export default function Lobby({
             <button
               className={`entrance-a__menu-item${selectedAction === 'invite' ? ' entrance-a__menu-item--selected' : ''}`}
               type="button"
-              onClick={() => triggerMenuAction('invite')}
+              onClick={() => triggerMenuAction('invite', onCreateInvite)}
               disabled={Boolean(selectedAction)}
             >
               <span>◐</span>

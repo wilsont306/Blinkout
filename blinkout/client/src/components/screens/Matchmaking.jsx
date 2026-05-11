@@ -41,7 +41,7 @@ export default function Matchmaking({ playerName, matched = false, onCancel }) {
           <small>step out of matchmaking</small>
         </button>
 
-        <div className="poster-footnote">BlinkOut · Entry 04</div>
+        <div className="poster-footnote">Blink Duel · Entry 04</div>
         <div className="poster-footnote poster-footnote--right">Official card</div>
       </div>
 
