@@ -7,7 +7,19 @@ export default function Result({
   onCancelRematch,
   onLeave,
 }) {
-  if (!resultData) return null
+  if (!resultData) return (
+    <div className="poster-screen poster-screen--result poster-screen--result-lose">
+      <div className="poster-card poster-card--result">
+        <div className="poster-kicker">Match Over</div>
+        <h1 className="poster-headline"><em>Done.</em></h1>
+        <div className="result-cta-row">
+          <button className="poster-cta poster-cta--result result-cta--leave" type="button" onClick={onLeave}>
+            Leave<small>return to lobby</small>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 
   const { winner, duration, blinkTimestamp, myPlayerId, opponentName, reason } = resultData
   const isWin = winner === myPlayerId

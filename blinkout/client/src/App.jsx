@@ -61,7 +61,6 @@ export default function App() {
   const blinkSentRef      = useRef(false)
   const matchStartMsRef   = useRef(null)
   const myLivesRef        = useRef(3)
-  const blinkCooldownRef  = useRef(false)
 
   useEffect(() => { playerNameRef.current = playerName }, [playerName])
 
@@ -145,10 +144,9 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    autoForfeitRef.current   = false
-    blinkSentRef.current     = false
-    blinkCooldownRef.current = false
-    myLivesRef.current       = 3
+    autoForfeitRef.current = false
+    blinkSentRef.current   = false
+    myLivesRef.current     = 3
     setMyLives(3)
     setOpponentLives(3)
   }, [matchData?.matchId])
@@ -184,22 +182,18 @@ export default function App() {
     videoEl: camera.videoEl,
     enabled: blinkActive,
     onBlink: useCallback(() => {
-      if (!matchData?.matchId || blinkSentRef.current || blinkCooldownRef.current) return
+      if (!matchData?.matchId || blinkSentRef.current) return
 
       if (myLivesRef.current <= 1) {
-        // Last life — end the match
         blinkSentRef.current = true
         const holdMs = matchStartMsRef.current
           ? Math.max(0, Date.now() - matchStartMsRef.current)
           : 0
         sendBlink(matchData.matchId, holdMs)
       } else {
-        // Strike — lose a life and continue after cooldown
-        blinkCooldownRef.current = true
         myLivesRef.current -= 1
         setMyLives(myLivesRef.current)
         sendStrike(matchData.matchId, myLivesRef.current)
-        setTimeout(() => { blinkCooldownRef.current = false }, 2000)
       }
     }, [matchData?.matchId, sendBlink, sendStrike]),
   })
