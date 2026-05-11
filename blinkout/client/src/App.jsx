@@ -307,6 +307,8 @@ export default function App() {
           <InviteLobby
             playerName={playerName}
             roomCode={inviteCode}
+            camera={camera}
+            blink={blink}
             onMatchStart={handleInviteMatchStart}
             onLeave={handleLeaveInvite}
           />
