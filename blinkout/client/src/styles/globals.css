@@ -2729,3 +2729,64 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Invite lobby camera previews ─────────────────────────────────────────── */
+.invite-cameras {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.invite-cam-slot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.invite-cam-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: rgba(245,239,230,0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invite-cam-window {
+  width: 100%;
+  aspect-ratio: 4/3;
+  border-radius: 8px;
+  border: 1px solid rgba(232,154,60,0.35);
+  background: #050403;
+  overflow: hidden;
+  position: relative;
+}
+
+.invite-cam-window--opp {
+  border-style: dashed;
+}
+
+.invite-cam-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.invite-cam-placeholder span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(245,239,230,0.25);
+}
+
+.invite-cam-warning {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #e89a3c;
+  line-height: 1.4;
+}

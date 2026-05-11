@@ -1,38 +1,68 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase.js'
 import { CLIENT_ID } from '../../hooks/useGame.js'
+import CameraPreview from '../camera/CameraPreview.jsx'
 
-export default function InviteLobby({ playerName, roomCode, onMatchStart, onLeave }) {
-  const [opponent, setOpponent]   = useState(null)   // { clientId, handle, isReady }
-  const [iAmReady, setIAmReady]   = useState(false)
-  const [copied, setCopied]       = useState(false)
-  const [starting, setStarting]   = useState(false)
-  const channelRef                = useRef(null)
-  const startedRef                = useRef(false)
+const MIN_FRAME_MS = 200 // ~5 fps in lobby
+
+export default function InviteLobby({ playerName, roomCode, camera, blink, onMatchStart, onLeave }) {
+  const [opponent, setOpponent]         = useState(null)
+  const [iAmReady, setIAmReady]         = useState(false)
+  const [copied, setCopied]             = useState(false)
+  const [starting, setStarting]         = useState(false)
+  const [opponentFrame, setOpponentFrame] = useState(null)
+  const [camConfirmed, setCamConfirmed] = useState(false)
+
+  const channelRef   = useRef(null)
+  const startedRef   = useRef(false)
+  const lastFrameRef = useRef(0)
+  const frameCanvas  = useRef(null)
+
+  const { attachRef, permission, stream, requestCamera, videoEl } = camera
+  const { faceDetected, loading, warning, eyeBoxes, blinking }    = blink
 
   const inviteUrl = `${window.location.origin}?invite=${roomCode}`
+  const cameraOk  = camConfirmed && permission === 'granted' && faceDetected
+  const canReady  = !!opponent && cameraOk && !iAmReady && !starting
+
+  // Request camera on mount
+  useEffect(() => {
+    if (permission !== 'granted') requestCamera()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
-    const ch = supabase.channel(`invite:${roomCode}`)
+    if (permission === 'granted' && stream) setCamConfirmed(true)
+  }, [permission, stream])
 
-    ch.on('presence', { event: 'sync' }, () => {
-      const presences = Object.values(ch.presenceState()).flat()
-      const opp = presences.find(p => p.clientId !== CLIENT_ID)
-      setOpponent(opp ?? null)
-
-      if (
-        !startedRef.current &&
-        presences.length === 2 &&
-        presences.every(p => p.isReady)
-      ) {
-        startedRef.current = true
-        setStarting(true)
-        const oppPresence = presences.find(p => p.clientId !== CLIENT_ID)
-        setTimeout(() => {
-          onMatchStart(roomCode, oppPresence.handle, oppPresence.clientId)
-        }, 800)
-      }
+  // Presence + video relay channel
+  useEffect(() => {
+    const ch = supabase.channel(`invite:${roomCode}`, {
+      config: { broadcast: { self: false } },
     })
+
+    ch
+      .on('presence', { event: 'sync' }, () => {
+        const presences = Object.values(ch.presenceState()).flat()
+        const opp = presences.find(p => p.clientId !== CLIENT_ID)
+        setOpponent(opp ?? null)
+
+        if (
+          !startedRef.current &&
+          presences.length === 2 &&
+          presences.every(p => p.isReady)
+        ) {
+          startedRef.current = true
+          setStarting(true)
+          const oppP = presences.find(p => p.clientId !== CLIENT_ID)
+          setTimeout(() => {
+            onMatchStart(roomCode, oppP.handle, oppP.clientId)
+          }, 900)
+        }
+      })
+      .on('broadcast', { event: 'VIDEO_FRAME' }, ({ payload }) => {
+        setOpponentFrame(payload.frame)
+      })
 
     ch.subscribe(async status => {
       if (status === 'SUBSCRIBED') {
@@ -44,8 +74,27 @@ export default function InviteLobby({ playerName, roomCode, onMatchStart, onLeav
     return () => { supabase.removeChannel(ch) }
   }, [roomCode, playerName, onMatchStart])
 
+  // Send own video frames to opponent
+  useEffect(() => {
+    const canvas = document.createElement('canvas')
+    frameCanvas.current = canvas
+
+    const t = setInterval(() => {
+      const now = Date.now()
+      if (now - lastFrameRef.current < MIN_FRAME_MS) return
+      if (!videoEl || videoEl.readyState < 2 || !channelRef.current) return
+      canvas.width = 96; canvas.height = 72
+      canvas.getContext('2d').drawImage(videoEl, 0, 0, 96, 72)
+      const frame = canvas.toDataURL('image/jpeg', 0.5)
+      channelRef.current.send({ type: 'broadcast', event: 'VIDEO_FRAME', payload: { frame } })
+      lastFrameRef.current = now
+    }, 100)
+
+    return () => clearInterval(t)
+  }, [videoEl])
+
   const handleReady = async () => {
-    if (iAmReady || !opponent) return
+    if (!canReady) return
     setIAmReady(true)
     await channelRef.current?.track({ clientId: CLIENT_ID, handle: playerName, isReady: true })
   }
@@ -57,6 +106,14 @@ export default function InviteLobby({ playerName, roomCode, onMatchStart, onLeav
     })
   }
 
+  const camWarning =
+    warning === 'covered'         ? 'Eyes covered — uncover them before readying up.'
+    : warning === 'partial-covered' ? 'One eye blocked — clear your view.'
+    : warning === 'bad-lighting'    ? 'Too dark — brighten your face.'
+    : warning === 'cv-error'        ? 'Face detection failed.'
+    : !faceDetected && camConfirmed ? 'Position your face in frame to ready up.'
+    : null
+
   return (
     <div className="poster-screen poster-screen--invite">
       <div className="poster-card poster-card--invite">
@@ -67,29 +124,59 @@ export default function InviteLobby({ playerName, roomCode, onMatchStart, onLeav
           Private <span>duel.</span>
         </h1>
         <p className="poster-subline">
-          {opponent
-            ? `${opponent.handle} has joined the room`
+          {starting
+            ? 'Both ready — entering the duel…'
+            : opponent
+            ? `${opponent.handle} has joined`
             : 'Share the link — waiting for your opponent'}
         </p>
 
-        <div className="invite-players">
-          <div className="invite-player invite-player--you">
-            <span className="invite-player__label">YOU</span>
-            <strong className="invite-player__name">{playerName}</strong>
+        {/* Camera previews */}
+        <div className="invite-cameras">
+          <div className="invite-cam-slot">
+            <div className="invite-cam-label">YOU · {playerName}</div>
+            <div className="invite-cam-window">
+              {camConfirmed && permission === 'granted' ? (
+                <CameraPreview
+                  attachRef={attachRef}
+                  videoEl={videoEl}
+                  faceDetected={faceDetected}
+                  loading={loading}
+                  eyeBoxes={eyeBoxes}
+                  blinking={blinking}
+                  style={{ width: '100%', height: '100%', borderRadius: 8 }}
+                />
+              ) : (
+                <div className="invite-cam-placeholder">
+                  <span>{loading ? 'Loading…' : 'Camera needed'}</span>
+                </div>
+              )}
+            </div>
+            {camWarning && (
+              <p className="invite-cam-warning">{camWarning}</p>
+            )}
             <span className={`invite-player__status${iAmReady ? ' is-ready' : ''}`}>
-              {iAmReady ? 'READY' : 'NOT READY'}
+              {iAmReady ? 'READY' : cameraOk ? 'CAMERA OK' : 'CAMERA NEEDED'}
             </span>
           </div>
 
           <div className="invite-vs">VS</div>
 
-          <div className={`invite-player invite-player--opp${opponent ? '' : ' invite-player--empty'}`}>
-            <span className="invite-player__label">OPP</span>
-            <strong className="invite-player__name">
-              {opponent ? opponent.handle : '???'}
-            </strong>
+          <div className="invite-cam-slot">
+            <div className="invite-cam-label">
+              {opponent ? `OPP · ${opponent.handle}` : 'WAITING…'}
+            </div>
+            <div className="invite-cam-window invite-cam-window--opp">
+              {opponentFrame ? (
+                <img src={opponentFrame} alt="opponent" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+              ) : (
+                <div className="invite-cam-placeholder">
+                  <span>{opponent ? 'Loading cam…' : '???'}</span>
+                </div>
+              )}
+            </div>
             <span className={`invite-player__status${opponent?.isReady ? ' is-ready' : ''}`}>
-              {opponent ? (opponent.isReady ? 'READY' : 'NOT READY') : 'WAITING'}
+              {opponent ? (opponent.isReady ? 'READY' : 'NOT READY') : 'NOT JOINED'}
             </span>
           </div>
         </div>
@@ -106,17 +193,16 @@ export default function InviteLobby({ playerName, roomCode, onMatchStart, onLeav
             className={`poster-cta poster-cta--ready${iAmReady ? ' poster-cta--waiting' : ''}${starting ? ' poster-cta--glow' : ''}`}
             type="button"
             onClick={handleReady}
-            disabled={!opponent || iAmReady || starting}
+            disabled={!canReady}
           >
-            {starting ? 'Starting…' : iAmReady ? 'Waiting for opponent…' : 'Ready'}
+            {starting ? 'Starting…' : iAmReady ? `Waiting for ${opponent?.handle}…` : 'Ready'}
             <small>
-              {starting
-                ? 'entering the duel'
-                : iAmReady
-                ? `waiting for ${opponent?.handle}`
-                : opponent
-                ? 'both must be ready to start'
-                : 'waiting for opponent to join'}
+              {starting        ? 'entering the duel'
+              : iAmReady       ? `waiting for ${opponent?.handle}`
+              : !camConfirmed  ? 'camera required before readying up'
+              : !faceDetected  ? 'face must be visible to ready up'
+              : !opponent      ? 'waiting for opponent to join'
+              :                  'both must click ready to start'}
             </small>
           </button>
 
