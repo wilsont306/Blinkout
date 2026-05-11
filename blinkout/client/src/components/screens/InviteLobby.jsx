@@ -186,7 +186,6 @@ export default function InviteLobby({
 
   const camWarning =
     warning === 'covered'           ? 'Eyes covered — uncover them.'
-    : warning === 'partial-covered' ? 'One eye blocked — clear your view.'
     : warning === 'bad-lighting'    ? 'Too dark — brighten your face.'
     : warning === 'cv-error'        ? 'Face detection failed.'
     : null

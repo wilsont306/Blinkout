@@ -27,6 +27,9 @@ export default function Result({
   const duration = Number.isFinite(resultData.duration) ? resultData.duration : blinkTimestamp
   const isWin = typeof resultData.isWin === 'boolean' ? resultData.isWin : winner === myPlayerId
   const holdLabel = `${(blinkTimestamp / 1000).toFixed(2)}s`
+  const wins = Number.isFinite(stats?.wins) ? stats.wins : 0
+  const losses = Number.isFinite(stats?.losses) ? stats.losses : 0
+  const streak = Number.isFinite(stats?.streak) ? stats.streak : 0
 
   const rematchLabel = rematchStatus === 'requested'
     ? `Waiting for ${opponentName}…`
@@ -79,7 +82,7 @@ export default function Result({
           </div>
           <div>
             <span>{isWin ? 'Win streak' : 'Loss streak'}</span>
-            <strong>{isWin ? stats.streak : stats.losses}</strong>
+            <strong>{isWin ? streak : losses}</strong>
           </div>
           <div>
             <span>Final strike</span>
@@ -113,7 +116,7 @@ export default function Result({
         </div>
 
         <div className="poster-footnote">Blink Duel · {isWin ? 'Winner' : 'Eliminated'}</div>
-        <div className="poster-footnote poster-footnote--right">{playerName}</div>
+        <div className="poster-footnote poster-footnote--right">{playerName || (isWin ? `${wins}W` : `${losses}L`)}</div>
       </div>
     </div>
   )

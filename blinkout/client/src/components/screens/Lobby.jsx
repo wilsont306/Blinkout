@@ -134,9 +134,8 @@ export default function Lobby({
       {calibrationStarted && cameraReady && menuRevealed && (
         <div className="entrance-a__blink-bar">
           <EARBar ear={ear} />
-          <p className={warning === 'covered' || warning === 'partial-covered' || warning === 'bad-lighting' || warning === 'cv-error' ? 'is-warning' : ''}>
+          <p className={warning === 'covered' || warning === 'bad-lighting' || warning === 'cv-error' ? 'is-warning' : ''}>
             {warning === 'covered'         ? 'Eyes covered — that counts as a blink.'
-            : warning === 'partial-covered' ? 'One eye blocked — clear your eyes.'
             : warning === 'bad-lighting'    ? 'Lighting too dark — brighten your face.'
             : warning === 'cv-error'        ? 'Face detection failed.'
             : faceDetected                  ? 'Face detected.'

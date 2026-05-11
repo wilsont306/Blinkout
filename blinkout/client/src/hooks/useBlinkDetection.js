@@ -128,7 +128,6 @@ export function useBlinkDetection({ videoEl, enabled = false, onBlink }) {
         const eyeLuminances = sampleEyeLuminances(videoEl, currentEyeBoxes, sampleCanvasRef)
         const coveredEyeCount = eyeLuminances.filter(value => value < OCCLUDED_LUMINANCE_THRESHOLD).length
         const bothEyesCovered = eyeLuminances.length >= 2 && coveredEyeCount >= 2
-        const oneEyeCovered = eyeLuminances.length >= 2 && coveredEyeCount === 1
         const badLighting = frameLuminance !== null && frameLuminance < BAD_LIGHTING_LUMINANCE_THRESHOLD
         const coveredStrike = bothEyesCovered && !badLighting
         const isBlinking = currentEAR < BLINK_THRESHOLD || coveredStrike
@@ -141,8 +140,6 @@ export function useBlinkDetection({ videoEl, enabled = false, onBlink }) {
           setWarning('bad-lighting')
         } else if (bothEyesCovered) {
           setWarning('covered')
-        } else if (oneEyeCovered) {
-          setWarning('partial-covered')
         }
 
         if (!faceStable) return
