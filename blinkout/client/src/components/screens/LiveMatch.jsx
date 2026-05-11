@@ -61,14 +61,14 @@ export default function LiveMatch({
 
       const canvas = frameCanvasRef.current ?? document.createElement('canvas')
       frameCanvasRef.current = canvas
-      canvas.width = 240
-      canvas.height = Math.round(240 * (video.videoHeight / video.videoWidth))
+      canvas.width = 480
+      canvas.height = Math.round(480 * (video.videoHeight / video.videoWidth))
 
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      sendVideoFrame(matchData.matchId, canvas.toDataURL('image/jpeg', 0.38))
+      sendVideoFrame(matchData.matchId, canvas.toDataURL('image/jpeg', 0.72))
     }, 300)
 
     return () => clearInterval(t)

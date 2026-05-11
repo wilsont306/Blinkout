@@ -105,11 +105,12 @@ export default function InviteLobby({
       if (now - lastFrameRef.current < MIN_FRAME_MS) return
       if (!videoEl || videoEl.readyState < 2 || !channelRef.current) return
       const c = document.createElement('canvas')
-      c.width = 96; c.height = 72
-      c.getContext('2d').drawImage(videoEl, 0, 0, 96, 72)
+      c.width = 480
+      c.height = Math.round(480 * ((videoEl.videoHeight || 360) / (videoEl.videoWidth || 480)))
+      c.getContext('2d').drawImage(videoEl, 0, 0, c.width, c.height)
       channelRef.current.send({
         type: 'broadcast', event: 'VIDEO_FRAME',
-        payload: { frame: c.toDataURL('image/jpeg', 0.5), fromId: CLIENT_ID },
+        payload: { frame: c.toDataURL('image/jpeg', 0.72), fromId: CLIENT_ID },
       })
       lastFrameRef.current = now
     }, 100)
