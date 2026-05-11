@@ -268,6 +268,16 @@ export default function App() {
     }
   }
 
+  function handleNewMatch() {
+    if (resultData?.matchId) cancelRematch(resultData.matchId)
+    setRematchStatus(null)
+    setResultData(null)
+    setMatchData(null)
+    setQueueMatched(false)
+    joinQueue(playerNameRef.current)
+    setScreen(SCREEN.MATCHMAKING)
+  }
+
   function handleReturnToLobby() {
     if (resultData?.matchId) cancelRematch(resultData.matchId)
     setRematchStatus(null)
@@ -411,6 +421,7 @@ export default function App() {
             rematchStatus={rematchStatus}
             onRematch={handleRequestRematch}
             onCancelRematch={handleCancelRematch}
+            onNewMatch={handleNewMatch}
             onLeave={handleReturnToLobby}
           />
         )}

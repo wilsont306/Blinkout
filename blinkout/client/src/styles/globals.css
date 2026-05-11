@@ -734,8 +734,9 @@ body {
   margin-top: 4px;
 }
 
-.result-cta--rematch { flex: 1 1 200px; max-width: 320px; }
-.result-cta--leave   { flex: 0 1 140px; background: transparent; border: 1px solid rgba(245,239,230,0.22); color: rgba(245,239,230,0.65); }
+.result-cta--rematch { flex: 1 1 220px; max-width: 340px; }
+.result-cta--new     { flex: 1 1 180px; max-width: 260px; }
+.result-cta--leave   { flex: 0 1 180px; background: transparent; border: 1px solid rgba(245,239,230,0.22); color: rgba(245,239,230,0.65); }
 
 .result-cta--leave:hover,
 .result-cta--leave:focus-visible {
