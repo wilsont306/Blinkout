@@ -27,11 +27,12 @@ export default function InviteLobby({
   const [nameInput, setNameInput]     = useState(playerName)
   const nameInputRef                  = useRef(null)
 
-  const channelRef   = useRef(null)
-  const startedRef   = useRef(false)
-  const lastFrameRef = useRef(0)
+  const channelRef    = useRef(null)
+  const startedRef    = useRef(false)
+  const lastFrameRef  = useRef(0)
+  const opponentRef   = useRef(null)
   // Per-tab session ID — unlike CLIENT_ID this is NOT shared across same-browser tabs
-  const sessionId    = useRef(crypto.randomUUID()).current
+  const sessionId     = useRef(crypto.randomUUID()).current
 
   const {
     attachRef, permission, error, devices, deviceId,
@@ -73,52 +74,60 @@ export default function InviteLobby({
       config: { broadcast: { self: false } },
     })
 
-    const isOpp = (p) => p.sessionId !== sessionId
+    const myInfo = { sessionId, clientId: CLIENT_ID, handle: playerName }
 
-    const getOpp = () => {
-      const presences = Object.values(ch.presenceState()).flat()
-      return presences.find(isOpp) ?? null
-    }
-
-    const checkStart = () => {
-      if (startedRef.current) return
-      const presences = Object.values(ch.presenceState()).flat()
-      if (presences.length >= 2 && presences.every(p => p.isReady)) {
-        startedRef.current = true
-        setStarting(true)
-        const oppP = presences.find(isOpp)
-        setTimeout(() => onMatchStart(roomCode, oppP.handle, oppP.clientId), 900)
-      }
-    }
+    const sendHello = () => ch.send({
+      type: 'broadcast', event: 'LOBBY_HELLO', payload: myInfo,
+    })
 
     ch
-      .on('presence', { event: 'sync' }, () => {
-        setOpponent(getOpp())
-        checkStart()
+      .on('broadcast', { event: 'LOBBY_HELLO' }, ({ payload }) => {
+        if (payload.sessionId === sessionId) return
+        // Someone announced themselves — record them and reply so they see us
+        opponentRef.current = { ...payload, isReady: false }
+        setOpponent(opponentRef.current)
+        ch.send({ type: 'broadcast', event: 'LOBBY_HELLO_BACK', payload: myInfo })
       })
-      .on('presence', { event: 'join' }, ({ newPresences }) => {
-        const opp = newPresences.find(isOpp)
-        if (opp) setOpponent(opp)
-        checkStart()
+      .on('broadcast', { event: 'LOBBY_HELLO_BACK' }, ({ payload }) => {
+        if (payload.sessionId === sessionId) return
+        // Reply from someone already in the lobby
+        if (!opponentRef.current) {
+          opponentRef.current = { ...payload, isReady: false }
+          setOpponent(opponentRef.current)
+        }
       })
-      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        const oppLeft = leftPresences.find(isOpp)
-        if (oppLeft) setOpponent(null)
+      .on('broadcast', { event: 'LOBBY_READY' }, ({ payload }) => {
+        if (payload.sessionId === sessionId) return
+        setOpponent(prev => {
+          if (!prev) return prev
+          const next = { ...prev, isReady: payload.isReady }
+          opponentRef.current = next
+          return next
+        })
       })
       .on('broadcast', { event: 'VIDEO_FRAME' }, ({ payload }) => {
         if (payload.fromSessionId === sessionId) return
         setOpponentFrame(payload.frame)
       })
 
-    ch.subscribe(async status => {
-      if (status === 'SUBSCRIBED') {
-        await ch.track({ clientId: CLIENT_ID, sessionId, handle: playerName, isReady: false })
-      }
+    ch.subscribe(status => {
+      if (status !== 'SUBSCRIBED') return
+      sendHello()
     })
 
+    // Re-send hello every 2s until opponent detected (handles late joiners)
+    const helloT = setInterval(() => {
+      if (!opponentRef.current) sendHello()
+    }, 2000)
+
     channelRef.current = ch
-    return () => { supabase.removeChannel(ch); channelRef.current = null }
-  }, [phase, roomCode, playerName, onMatchStart])
+    return () => {
+      clearInterval(helloT)
+      supabase.removeChannel(ch)
+      channelRef.current = null
+      opponentRef.current = null
+    }
+  }, [phase, roomCode, playerName])
 
   // ── Video frame relay ──────────────────────────────────────────
   useEffect(() => {
@@ -141,11 +150,21 @@ export default function InviteLobby({
   }, [phase, videoEl])
 
   // ── Ready ──────────────────────────────────────────────────────
-  const handleReady = async () => {
+  const handleReady = () => {
     if (!canReady) return
     setIAmReady(true)
-    await channelRef.current?.track({ clientId: CLIENT_ID, sessionId, handle: playerName, isReady: true })
+    channelRef.current?.send({
+      type: 'broadcast', event: 'LOBBY_READY', payload: { sessionId, isReady: true },
+    })
   }
+
+  // Start match when both players are ready
+  useEffect(() => {
+    if (!iAmReady || !opponent?.isReady || startedRef.current) return
+    startedRef.current = true
+    setStarting(true)
+    setTimeout(() => onMatchStart(roomCode, opponent.handle, opponent.clientId), 900)
+  }, [iAmReady, opponent?.isReady, opponent?.handle, opponent?.clientId, roomCode, onMatchStart])
 
   // ── Name edit ──────────────────────────────────────────────────
   useEffect(() => { if (editingName) nameInputRef.current?.focus() }, [editingName])
