@@ -81,19 +81,28 @@ export default function App() {
     }, 2000)
   }, [])
 
-  const handleMatchEnd = useCallback((data) => {
+  const handleMatchEnd = useCallback((data = {}) => {
     setBlinkActive(false)
     setOpponentFrame(null)
     setRematchStatus(data.reason === 'forfeit' ? 'declined' : null)
     const isWin = data.winner === CLIENT_ID
-    setResultData({ ...data, myPlayerId: CLIENT_ID, opponentName: matchData?.opponentName ?? 'Opponent', isWin })
+    const blinkTimestamp = Number.isFinite(data.blinkTimestamp) ? data.blinkTimestamp : 0
+    const duration = Number.isFinite(data.duration) ? data.duration : blinkTimestamp
+    setResultData({
+      ...data,
+      duration,
+      blinkTimestamp,
+      myPlayerId: CLIENT_ID,
+      opponentName: matchData?.opponentName ?? 'Opponent',
+      isWin,
+    })
     setScreen(SCREEN.RESULT)
     setStats(prev => {
       const next = {
         wins:     isWin ? prev.wins + 1 : prev.wins,
         losses:   isWin ? prev.losses   : prev.losses + 1,
         streak:   isWin ? prev.streak + 1 : 0,
-        bestHold: isWin ? Math.max(prev.bestHold, data.blinkTimestamp) : prev.bestHold,
+        bestHold: isWin ? Math.max(prev.bestHold, blinkTimestamp) : prev.bestHold,
       }
       if (isWin) {
         supabase.rpc('upsert_leaderboard', {
