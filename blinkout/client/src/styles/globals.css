@@ -2599,15 +2599,8 @@ body {
   box-shadow: inset 0 0 0 1px rgba(245,239,230,0.05), 0 30px 80px rgba(0,0,0,0.6);
   gap: 20px;
   min-height: unset;
+  width: min(96vw, 860px);
   margin: auto;
-}
-
-/* Limit camera height on short screens so buttons stay reachable */
-@media (max-height: 750px) {
-  .invite-cam-window {
-    aspect-ratio: unset;
-    height: clamp(80px, 18vh, 160px);
-  }
 }
 
 .poster-screen--invite .poster-meta,

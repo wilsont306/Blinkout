@@ -30,6 +30,8 @@ export default function InviteLobby({
   const channelRef   = useRef(null)
   const startedRef   = useRef(false)
   const lastFrameRef = useRef(0)
+  // Per-tab session ID — unlike CLIENT_ID this is NOT shared across same-browser tabs
+  const sessionId    = useRef(crypto.randomUUID()).current
 
   const {
     attachRef, permission, error, devices, deviceId,
@@ -71,9 +73,11 @@ export default function InviteLobby({
       config: { broadcast: { self: false } },
     })
 
+    const isOpp = (p) => p.sessionId !== sessionId
+
     const getOpp = () => {
       const presences = Object.values(ch.presenceState()).flat()
-      return presences.find(p => p.clientId !== CLIENT_ID) ?? null
+      return presences.find(isOpp) ?? null
     }
 
     const checkStart = () => {
@@ -82,7 +86,7 @@ export default function InviteLobby({
       if (presences.length >= 2 && presences.every(p => p.isReady)) {
         startedRef.current = true
         setStarting(true)
-        const oppP = presences.find(p => p.clientId !== CLIENT_ID)
+        const oppP = presences.find(isOpp)
         setTimeout(() => onMatchStart(roomCode, oppP.handle, oppP.clientId), 900)
       }
     }
@@ -93,22 +97,22 @@ export default function InviteLobby({
         checkStart()
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
-        const opp = newPresences.find(p => p.clientId !== CLIENT_ID)
+        const opp = newPresences.find(isOpp)
         if (opp) setOpponent(opp)
         checkStart()
       })
       .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        const oppLeft = leftPresences.find(p => p.clientId !== CLIENT_ID)
+        const oppLeft = leftPresences.find(isOpp)
         if (oppLeft) setOpponent(null)
       })
       .on('broadcast', { event: 'VIDEO_FRAME' }, ({ payload }) => {
-        if (payload.fromId === CLIENT_ID) return
+        if (payload.fromSessionId === sessionId) return
         setOpponentFrame(payload.frame)
       })
 
     ch.subscribe(async status => {
       if (status === 'SUBSCRIBED') {
-        await ch.track({ clientId: CLIENT_ID, handle: playerName, isReady: false })
+        await ch.track({ clientId: CLIENT_ID, sessionId, handle: playerName, isReady: false })
       }
     })
 
@@ -129,7 +133,7 @@ export default function InviteLobby({
       c.getContext('2d').drawImage(videoEl, 0, 0, c.width, c.height)
       channelRef.current.send({
         type: 'broadcast', event: 'VIDEO_FRAME',
-        payload: { frame: c.toDataURL('image/jpeg', 0.72), fromId: CLIENT_ID },
+        payload: { frame: c.toDataURL('image/jpeg', 0.72), fromSessionId: sessionId },
       })
       lastFrameRef.current = now
     }, 100)
@@ -140,7 +144,7 @@ export default function InviteLobby({
   const handleReady = async () => {
     if (!canReady) return
     setIAmReady(true)
-    await channelRef.current?.track({ clientId: CLIENT_ID, handle: playerName, isReady: true })
+    await channelRef.current?.track({ clientId: CLIENT_ID, sessionId, handle: playerName, isReady: true })
   }
 
   // ── Name edit ──────────────────────────────────────────────────
