@@ -307,8 +307,8 @@ export default function App() {
     setScreen(SCREEN.LOBBY)
   }
 
-  function handleForfeit() {
-    if (matchData?.matchId) forfeit(matchData.matchId, 'user')
+  function handleForfeit(reason = 'user') {
+    if (matchData?.matchId) forfeit(matchData.matchId, reason)
     setBlinkActive(false)
     setOpponentFrame(null)
     setResultData({
@@ -319,7 +319,7 @@ export default function App() {
       opponentName: matchData?.opponentName ?? 'Opponent',
       isWin: false,
       blinkTimestamp: 0,
-      reason: 'forfeit',
+      reason,
     })
     setScreen(SCREEN.RESULT)
   }
