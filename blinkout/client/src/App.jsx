@@ -59,6 +59,7 @@ export default function App() {
   const queueAdvanceRef   = useRef(null)
   const autoForfeitRef    = useRef(false)
   const blinkSentRef      = useRef(false)
+  const lastBlinkMsRef    = useRef(0)
   const matchStartMsRef   = useRef(null)
   const myLivesRef        = useRef(3)
 
@@ -171,6 +172,7 @@ export default function App() {
   useEffect(() => {
     autoForfeitRef.current = false
     blinkSentRef.current   = false
+    lastBlinkMsRef.current = 0
     myLivesRef.current     = 3
     setMyLives(3)
     setOpponentLives(3)
@@ -210,6 +212,9 @@ export default function App() {
     enabled: blinkActive,
     onBlink: useCallback(() => {
       if (!matchData?.matchId || blinkSentRef.current) return
+      const now = Date.now()
+      if (now - lastBlinkMsRef.current < 1000) return
+      lastBlinkMsRef.current = now
 
       if (myLivesRef.current <= 1) {
         blinkSentRef.current = true

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import CameraPreview from '../camera/CameraPreview.jsx'
 import EARBar from '../camera/EARBar.jsx'
+import { playClick, playLifeLost } from '../../lib/sounds.js'
 
 const BAD_CAMERA_LOSS_MS = 1000
 const BAD_CAMERA_WARNINGS = new Set(['bad-lighting', 'bad-glare'])
@@ -19,8 +20,12 @@ export default function LiveMatch({
 }) {
   const [elapsed, setElapsed] = useState(0)
   const [alertVisible, setAlertVisible] = useState(false)
+  const [myFlash, setMyFlash] = useState(false)
+  const [oppFlash, setOppFlash] = useState(false)
   const startRef = useRef(Date.now())
   const frameCanvasRef = useRef(null)
+  const prevMineRef = useRef(lives.mine)
+  const prevOppRef = useRef(lives.opponent)
 
   const { attachRef } = camera
   const { ear, faceDetected, loading, warning, eyeBoxes, blinking } = blink
@@ -81,8 +86,8 @@ export default function LiveMatch({
       if (!ctx) return
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      sendVideoFrame(matchData.matchId, canvas.toDataURL('image/jpeg', 0.88))
-    }, 120)
+      sendVideoFrame(matchData.matchId, canvas.toDataURL('image/jpeg', 0.94))
+    }, 50)
 
     return () => clearInterval(t)
   }, [camera.videoEl, matchData?.matchId, sendVideoFrame])
@@ -116,6 +121,28 @@ export default function LiveMatch({
     setAlertVisible(ear < 0.28)
   }, [ear])
 
+  // Life-lost flash + sound
+  useEffect(() => {
+    if (lives.mine < prevMineRef.current) {
+      setMyFlash(true)
+      playLifeLost()
+      const t = setTimeout(() => setMyFlash(false), 600)
+      prevMineRef.current = lives.mine
+      return () => clearTimeout(t)
+    }
+    prevMineRef.current = lives.mine
+  }, [lives.mine])
+
+  useEffect(() => {
+    if (lives.opponent < prevOppRef.current) {
+      setOppFlash(true)
+      const t = setTimeout(() => setOppFlash(false), 600)
+      prevOppRef.current = lives.opponent
+      return () => clearTimeout(t)
+    }
+    prevOppRef.current = lives.opponent
+  }, [lives.opponent])
+
   // Notify parent when local blink fires (server also confirms via MATCH_END)
   useEffect(() => {
     blink.resetBlink && (window.__blinkResetRef = blink.resetBlink)
@@ -130,6 +157,7 @@ export default function LiveMatch({
 
   return (
     <div className="poster-screen poster-screen--duel">
+      {myFlash && <div className="life-lost-flash" aria-hidden />}
       <div className="poster-card poster-card--duel">
         <div className="poster-meta">Browser Coliseum · 10-May-MMXXVI · Best of Three Lives</div>
         <div className="poster-kicker">Round 01</div>
@@ -158,6 +186,7 @@ export default function LiveMatch({
             statusColor={faceDetected ? 'var(--poster-amber)' : 'var(--poster-red)'}
             lives={lives.mine}
             ear={ear}
+            flash={myFlash}
           >
             <CameraPreview
               attachRef={attachRef}
@@ -180,6 +209,7 @@ export default function LiveMatch({
             statusColor="var(--poster-ink-soft)"
             lives={lives.opponent}
             ear={opponentEAR}
+            flash={oppFlash}
           >
             <div className="poster-opponent-feed">
               {opponentFrame ? (
@@ -200,7 +230,7 @@ export default function LiveMatch({
         <div className="poster-duel-cta">
           Don't blink. <small>first to blink loses</small>
           {onForfeit && (
-            <button className="duel-forfeit-btn" type="button" onClick={onForfeit}>
+            <button className="duel-forfeit-btn" type="button" onClick={() => { playClick(); onForfeit?.() }}>
               Leave
             </button>
           )}
@@ -212,9 +242,9 @@ export default function LiveMatch({
   )
 }
 
-function DuelCard({ corner, number, name, role, statusColor, lives, ear, children }) {
+function DuelCard({ corner, number, name, role, statusColor, lives, ear, flash, children }) {
   return (
-    <article className="duel-card">
+    <article className={`duel-card${flash ? ' duel-card--flash' : ''}`}>
       <div className="duel-card__corner">
         <span>{corner}</span>
         <span>{number}</span>
@@ -235,16 +265,29 @@ function DuelCard({ corner, number, name, role, statusColor, lives, ear, childre
 }
 
 function LifeBox({ label, value }) {
+  const prevRef = useRef(value)
+  const [breaking, setBreaking] = useState(null)
+
+  useEffect(() => {
+    if (value < prevRef.current) {
+      setBreaking(prevRef.current - 1)
+      const t = setTimeout(() => setBreaking(null), 750)
+      prevRef.current = value
+      return () => clearTimeout(t)
+    }
+    prevRef.current = value
+  }, [value])
+
   return (
     <div className="life-box" aria-label={`${value} lives remaining`}>
       <span className="life-box__label">{label}</span>
       {[0, 1, 2].map(index => (
         <span
           key={index}
-          className={`life-heart${index < value ? ' life-heart--active' : ''}`}
+          className={`life-heart${index < value ? ' life-heart--active' : ''}${index === breaking ? ' life-heart--breaking' : ''}`}
           aria-hidden
         >
-          {index < value ? '♥' : '♡'}
+          {index === breaking ? '💔' : index < value ? '♥' : '♡'}
         </span>
       ))}
     </div>
