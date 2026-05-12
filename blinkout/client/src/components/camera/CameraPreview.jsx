@@ -37,10 +37,10 @@ export default function CameraPreview({
     const offsetX = (W - drawnWidth) / 2
     const offsetY = (H - drawnHeight) / 2
 
-    ctx.strokeStyle = blinking ? '#ef4444' : '#a78bfa'
+    ctx.strokeStyle = blinking ? '#ef4444' : '#22d3ee'
     ctx.lineWidth = 1.5
-    ctx.shadowColor = blinking ? '#ef4444' : '#a78bfa'
-    ctx.shadowBlur = 6
+    ctx.shadowColor = blinking ? '#ef4444' : '#22d3ee'
+    ctx.shadowBlur = 10
 
     for (const box of eyeBoxes) {
       const w = box.w * drawnWidth
@@ -48,7 +48,13 @@ export default function CameraPreview({
       const sourceX = box.x * drawnWidth + offsetX
       const x = mirrored ? W - sourceX - w : sourceX
       const y = box.y * drawnHeight + offsetY
-      ctx.strokeRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h))
+      const cx = x + w / 2
+      const cy = y + h / 2
+      const rx = w / 2
+      const ry = h / 2
+      ctx.beginPath()
+      ctx.ellipse(Math.round(cx), Math.round(cy), Math.max(1, Math.round(rx)), Math.max(1, Math.round(ry)), 0, 0, Math.PI * 2)
+      ctx.stroke()
     }
   }, [eyeBoxes, blinking, mirrored, videoEl])
 

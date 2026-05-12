@@ -1,14 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { averagePixelLuminance, computeEAR, computeEyeBoxes } from '../lib/earDetection.js'
 
-const BLINK_THRESHOLD = 0.20
+const BLINK_THRESHOLD              = 0.20
 const OCCLUDED_LUMINANCE_THRESHOLD = 55
-const BAD_LIGHTING_LUMINANCE_THRESHOLD = 42
+const BAD_LIGHTING_LUMINANCE_THRESHOLD  = 42
 const BAD_LIGHTING_DARK_RATIO_THRESHOLD = 0.72
-const GLARE_LUMINANCE_THRESHOLD = 218
-const GLARE_PIXEL_RATIO_THRESHOLD = 0.20
-const BLINK_FRAMES    = 2
-const FACE_STABLE_MS  = 500
+const GLARE_LUMINANCE_THRESHOLD    = 218
+const GLARE_PIXEL_RATIO_THRESHOLD  = 0.20
+const BLINK_FRAMES                 = 2
+const FACE_STABLE_MS               = 500
+// Velocity gate: EAR must drop this fast (per frame) to enter blink state
+const BLINK_VELOCITY_THRESHOLD     = 0.018
+// Adaptive baseline: EAR must also drop this far below personal open-eye average
+const OPEN_EAR_DROP_REQUIRED       = 0.055
+const OPEN_EAR_UPDATE_ALPHA        = 0.10
+// Liveness: iris relative to nose must show this much variance over N frames
+const LIVENESS_BUFFER_SIZE         = 55
+const LIVENESS_VARIANCE_THRESHOLD  = 2e-7
 let faceMeshScriptPromise = null
 
 async function loadFaceMeshScript() {
@@ -49,8 +57,13 @@ export function useBlinkDetection({ videoEl, enabled = false, onBlink }) {
   const lightingCanvasRef = useRef(null)
   const enabledRef    = useRef(enabled)
   const onBlinkRef    = useRef(onBlink)
-  // Stable ref checked by the singleton's onResults — avoids re-registering on every videoEl change
   const cancelledRef  = useRef(false)
+  // Cheekbone/smile fix: adaptive open-eye baseline + velocity gate
+  const openEARRef      = useRef(0.3)
+  const prevEARRef      = useRef(0.3)
+  const blinkEnteredRef = useRef(false)
+  // Liveness: rolling buffer of iris-relative-to-nose positions
+  const irisBufferRef   = useRef([])
 
   useEffect(() => { enabledRef.current = enabled }, [enabled])
   useEffect(() => { onBlinkRef.current = onBlink }, [onBlink])
@@ -107,6 +120,7 @@ export function useBlinkDetection({ videoEl, enabled = false, onBlink }) {
         if (!results.multiFaceLandmarks?.length) {
           setFaceDetected(false)
           setEyeBoxes(null)
+          irisBufferRef.current = []
           if (lightingIssue) {
             setEAR(0)
             setBlinking(false)
@@ -134,12 +148,51 @@ export function useBlinkDetection({ videoEl, enabled = false, onBlink }) {
         const currentEyeBoxes = computeEyeBoxes(landmarks)
         const faceStable = Date.now() - faceSinceRef.current >= FACE_STABLE_MS
         if (faceStable) hadStableFaceRef.current = true
+
+        // Adaptive open-eye baseline (EMA of EAR when eyes are clearly open)
+        if (currentEAR > BLINK_THRESHOLD + 0.02) {
+          openEARRef.current = openEARRef.current * (1 - OPEN_EAR_UPDATE_ALPHA) + currentEAR * OPEN_EAR_UPDATE_ALPHA
+        }
+
+        // Velocity gate: only enter blink state on a fast EAR drop
+        const earDrop = prevEARRef.current - currentEAR
+        prevEARRef.current = currentEAR
+        if (currentEAR < BLINK_THRESHOLD) {
+          if (earDrop >= BLINK_VELOCITY_THRESHOLD) blinkEnteredRef.current = true
+        } else {
+          blinkEnteredRef.current = false
+        }
+
+        // Liveness check: static image (photo/screen) has near-zero iris-relative-to-nose variance
+        if (landmarks[468] && landmarks[473] && landmarks[4]) {
+          const nose = landmarks[4]
+          irisBufferRef.current.push({
+            lx: landmarks[468].x - nose.x, ly: landmarks[468].y - nose.y,
+            rx: landmarks[473].x - nose.x, ry: landmarks[473].y - nose.y,
+          })
+          if (irisBufferRef.current.length > LIVENESS_BUFFER_SIZE) irisBufferRef.current.shift()
+          if (
+            irisBufferRef.current.length >= LIVENESS_BUFFER_SIZE &&
+            computeIrisVariance(irisBufferRef.current) < LIVENESS_VARIANCE_THRESHOLD
+          ) {
+            irisBufferRef.current = []
+            setFaceDetected(false)
+            setWarning('photo-face')
+            registerOpenFrame()
+            return
+          }
+        }
+
         const eyeLuminances = sampleEyeLuminances(videoEl, currentEyeBoxes, sampleCanvasRef) ?? []
         const coveredEyeCount = eyeLuminances.filter(value => value < OCCLUDED_LUMINANCE_THRESHOLD).length
         const bothEyesCovered = eyeLuminances.length >= 2 && coveredEyeCount >= 2
         const badLighting = lightingIssue === 'bad-lighting'
         const coveredStrike = bothEyesCovered && !badLighting
-        const isBlinking = currentEAR < BLINK_THRESHOLD || coveredStrike
+        // Require: EAR below threshold AND entered via fast drop AND dropped from personal baseline
+        const isBlinkingByEAR = currentEAR < BLINK_THRESHOLD &&
+          blinkEnteredRef.current &&
+          currentEAR < openEARRef.current - OPEN_EAR_DROP_REQUIRED
+        const isBlinking = isBlinkingByEAR || coveredStrike
 
         setEAR(coveredStrike ? 0 : currentEAR)
         setEyeBoxes(currentEyeBoxes)
@@ -255,6 +308,17 @@ function sampleFrameLightingStats(videoEl, canvasRef) {
     darkRatio: dark / count,
     brightRatio: bright / count,
   }
+}
+
+function computeIrisVariance(buf) {
+  const n = buf.length
+  const lxM = buf.reduce((s, p) => s + p.lx, 0) / n
+  const lyM = buf.reduce((s, p) => s + p.ly, 0) / n
+  const rxM = buf.reduce((s, p) => s + p.rx, 0) / n
+  const ryM = buf.reduce((s, p) => s + p.ry, 0) / n
+  return buf.reduce((s, p) =>
+    s + (p.lx - lxM) ** 2 + (p.ly - lyM) ** 2 + (p.rx - rxM) ** 2 + (p.ry - ryM) ** 2
+  , 0) / (n * 4)
 }
 
 function getLightingIssue(stats) {
