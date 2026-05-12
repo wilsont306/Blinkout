@@ -54,6 +54,9 @@ export default function Result({
     else if (rematchStatus !== 'declined') onRematch?.()
   }
 
+  const headline = getHeadline(isWin, reason)
+  const subline = getSubline(isWin, reason, opponentName, holdLabel)
+
   return (
     <div className={`poster-screen poster-screen--result${isWin ? '' : ' poster-screen--result-lose'}`}>
       <div className="poster-card poster-card--result">
@@ -64,24 +67,10 @@ export default function Result({
         </div>
 
         <h1 className="poster-headline">
-          {isWin
-            ? <><span className="result-dim">Eyes</span>{' '}<em>open.</em></>
-            : <><span className="result-dim">You</span>{' '}<em>blinked.</em></>}
+          <span className="result-dim">{headline.dim}</span>{' '}<em>{headline.em}</em>
         </h1>
 
-        <p className="poster-subline">
-          {isWin
-            ? reason === 'no-face'
-              ? `${opponentName} had no face detected when the round began`
-              : reason === 'forfeit' || reason === 'left-page' || reason === 'tab-hidden'
-              ? `${opponentName} left the match`
-              : `${opponentName} blinked · held for ${holdLabel}`
-            : reason === 'no-face'
-            ? 'No face detected when the round began'
-            : reason === 'forfeit' || reason === 'left-page' || reason === 'tab-hidden'
-            ? 'You left the match'
-            : `You blinked · held for ${holdLabel}`}
-        </p>
+        <p className="poster-subline">{subline}</p>
 
         <div className="result-stats-strip">
           <div>
@@ -137,4 +126,51 @@ export default function Result({
       </div>
     </div>
   )
+}
+
+function getHeadline(isWin, reason) {
+  if (isWin) {
+    if (reason === 'covered')                                           return { dim: 'Face',   em: 'hidden.' }
+    if (reason === 'bad-lighting' || reason === 'bad-glare')           return { dim: 'Lights', em: 'out.' }
+    if (reason === 'no-face')                                          return { dim: 'No',     em: 'show.' }
+    if (reason === 'tab-hidden' || reason === 'left-page'
+        || reason === 'user'    || reason === 'forfeit')               return { dim: 'They',   em: 'fled.' }
+    return { dim: 'Eyes', em: 'open.' }
+  } else {
+    if (reason === 'covered')                                          return { dim: 'Face',   em: 'hidden.' }
+    if (reason === 'bad-lighting')                                     return { dim: 'Lights', em: 'out.' }
+    if (reason === 'bad-glare')                                        return { dim: 'Too',    em: 'bright.' }
+    if (reason === 'no-face')                                          return { dim: 'No',     em: 'show.' }
+    if (reason === 'tab-hidden' || reason === 'left-page')             return { dim: 'You',    em: 'fled.' }
+    if (reason === 'user' || reason === 'forfeit')                     return { dim: 'You',    em: 'left.' }
+    return { dim: 'You', em: 'blinked.' }
+  }
+}
+
+function getSubline(isWin, reason, opponentName, holdLabel) {
+  if (isWin) {
+    switch (reason) {
+      case 'covered':      return `${opponentName}'s face was covered`
+      case 'bad-lighting': return `${opponentName}'s camera was too dark`
+      case 'bad-glare':    return `${opponentName}'s camera had too much glare`
+      case 'no-face':      return `${opponentName} had no face detected`
+      case 'tab-hidden':   return `${opponentName} switched tabs`
+      case 'left-page':    return `${opponentName} disconnected`
+      case 'user':
+      case 'forfeit':      return `${opponentName} forfeited`
+      default:             return `${opponentName} blinked · held for ${holdLabel}`
+    }
+  } else {
+    switch (reason) {
+      case 'covered':      return 'Your face or camera was covered'
+      case 'bad-lighting': return "Camera too dark · eyes couldn't be tracked"
+      case 'bad-glare':    return "Too much glare · eyes couldn't be tracked"
+      case 'no-face':      return 'No face detected when the round began'
+      case 'tab-hidden':   return 'You switched tabs during the match'
+      case 'left-page':    return 'You navigated away'
+      case 'user':
+      case 'forfeit':      return 'You forfeited the match'
+      default:             return `You blinked · held for ${holdLabel}`
+    }
+  }
 }
