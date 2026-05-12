@@ -43,7 +43,8 @@ export default function InviteLobby({
 
   const cameraReady = camConfirmed && permission === 'granted'
   const inviteUrl   = `${window.location.origin}?invite=${roomCode}`
-  const canReady    = cameraReady && faceDetected && !iAmReady && !starting
+  const cameraBlocked = warning === 'bad-lighting' || warning === 'bad-glare' || warning === 'cv-error'
+  const canReady    = cameraReady && faceDetected && !cameraBlocked && !loading && !iAmReady && !starting
 
   // ── Phase transitions ──────────────────────────────────────────
   const handleOpenEye = () => {
@@ -187,6 +188,7 @@ export default function InviteLobby({
   const camWarning =
     warning === 'covered'           ? 'Eyes covered — uncover them.'
     : warning === 'bad-lighting'    ? 'Too dark — brighten your face.'
+    : warning === 'bad-glare'       ? 'Too much glare — reduce bright light on your face.'
     : warning === 'cv-error'        ? 'Face detection failed.'
     : null
 
@@ -388,6 +390,9 @@ export default function InviteLobby({
             <small>
               {starting       ? 'entering the duel'
               : iAmReady      ? 'waiting for opponent to ready up'
+              : warning === 'bad-lighting' ? 'lighting too dark to ready up'
+              : warning === 'bad-glare' ? 'too much glare to ready up'
+              : warning === 'cv-error' ? 'face detection failed'
               : !faceDetected ? 'face must be visible to ready up'
               :                 'click when your face is detected'}
             </small>
