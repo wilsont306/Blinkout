@@ -27,7 +27,7 @@ export function computeEAR(landmarks) {
 const LEFT_EYE_CONTOUR  = [33, 133, 246, 161, 160, 159, 158, 157, 173, 155, 154, 153, 145, 144, 163]
 const RIGHT_EYE_CONTOUR = [362, 263, 466, 388, 387, 386, 385, 384, 398, 382, 381, 380, 374, 373, 390]
 
-export function computeEyeBoxes(landmarks, padding = 0.005) {
+export function computeEyeBoxes(landmarks, padding = 0.016) {
   const box = (indices) => {
     const pts = indices.map(i => landmarks[i]).filter(Boolean)
     if (!pts.length) return null
