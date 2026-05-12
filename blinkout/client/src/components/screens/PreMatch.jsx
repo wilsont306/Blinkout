@@ -2,19 +2,22 @@ import { useState, useEffect, useRef } from 'react'
 import CameraPreview from '../camera/CameraPreview.jsx'
 
 const SEQUENCE = [3, 2, 1, 'GO']
+const START_BLOCKING_WARNINGS = new Set(['covered', 'bad-lighting', 'bad-glare', 'cv-error'])
 
 export default function PreMatch({ camera, blink, matchData, playerName, onMatchStart, onNoFaceForfeit }) {
   const [step, setStep] = useState(0)
   const [flashing, setFlashing] = useState(false)
   const faceDetectedRef = useRef(false)
+  const warningRef = useRef(null)
 
   const { attachRef, stream } = camera
-  const { faceDetected, loading, eyeBoxes, blinking } = blink
+  const { faceDetected, loading, warning, eyeBoxes, blinking } = blink
   const current = SEQUENCE[step]
 
   useEffect(() => {
     faceDetectedRef.current = faceDetected
-  }, [faceDetected])
+    warningRef.current = warning
+  }, [faceDetected, warning])
 
   useEffect(() => {
     if (step >= SEQUENCE.length - 1) {
@@ -23,7 +26,11 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
       const t = setTimeout(() => {
         setFlashing(false)
         if (!faceDetectedRef.current) {
-          onNoFaceForfeit?.()
+          onNoFaceForfeit?.('no-face')
+          return
+        }
+        if (START_BLOCKING_WARNINGS.has(warningRef.current)) {
+          onNoFaceForfeit?.(warningRef.current)
           return
         }
         onMatchStart()
@@ -97,10 +104,18 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
         letterSpacing: '0.1em', textTransform: 'uppercase',
         display: 'flex', gap: 'var(--sp-4)',
       }}>
-        <span style={{ color: faceDetected ? 'var(--accent-green)' : 'var(--accent-amber)' }}>
-          {faceDetected ? '● FACE DETECTED' : '○ NO FACE'}
+        <span style={{ color: faceDetected && !START_BLOCKING_WARNINGS.has(warning) ? 'var(--accent-green)' : 'var(--accent-amber)' }}>
+          {warning === 'bad-lighting' ? '● LIGHTING TOO DARK'
+          : warning === 'bad-glare' ? '● TOO MUCH GLARE'
+          : warning === 'covered' ? '● EYES COVERED'
+          : warning === 'cv-error' ? '● FACE DETECTION ERROR'
+          : faceDetected ? '● FACE DETECTED' : '○ NO FACE'}
         </span>
-        <span style={{ color: 'var(--accent-green)' }}>● LIGHTING OK</span>
+        <span style={{ color: warning === 'bad-lighting' || warning === 'bad-glare' ? 'var(--accent-amber)' : 'var(--accent-green)' }}>
+          {warning === 'bad-lighting' ? '● BRIGHTEN FACE'
+          : warning === 'bad-glare' ? '● REDUCE GLARE'
+          : '● LIGHTING OK'}
+        </span>
       </div>
     </div>
   )

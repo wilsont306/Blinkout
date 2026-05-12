@@ -4,6 +4,9 @@ import { averagePixelLuminance, computeEAR, computeEyeBoxes } from '../lib/earDe
 const BLINK_THRESHOLD = 0.20
 const OCCLUDED_LUMINANCE_THRESHOLD = 55
 const BAD_LIGHTING_LUMINANCE_THRESHOLD = 42
+const BAD_LIGHTING_DARK_RATIO_THRESHOLD = 0.72
+const GLARE_LUMINANCE_THRESHOLD = 218
+const GLARE_PIXEL_RATIO_THRESHOLD = 0.20
 const BLINK_FRAMES    = 2
 const FACE_STABLE_MS  = 500
 let faceMeshScriptPromise = null
@@ -98,11 +101,18 @@ export function useBlinkDetection({ videoEl, enabled = false, onBlink }) {
 
       faceMeshSingleton.onResults(results => {
         if (cancelledRef.current || runId !== activeRunId) return
+        const lightingStats = sampleFrameLightingStats(videoEl, lightingCanvasRef)
+        const lightingIssue = getLightingIssue(lightingStats)
 
         if (!results.multiFaceLandmarks?.length) {
           setFaceDetected(false)
           setEyeBoxes(null)
-          if (hadStableFaceRef.current) {
+          if (lightingIssue) {
+            setEAR(0)
+            setBlinking(false)
+            setWarning(lightingIssue)
+            registerOpenFrame()
+          } else if (hadStableFaceRef.current) {
             setEAR(0)
             setBlinking(true)
             setWarning('covered')
@@ -124,11 +134,10 @@ export function useBlinkDetection({ videoEl, enabled = false, onBlink }) {
         const currentEyeBoxes = computeEyeBoxes(landmarks)
         const faceStable = Date.now() - faceSinceRef.current >= FACE_STABLE_MS
         if (faceStable) hadStableFaceRef.current = true
-        const frameLuminance = sampleFrameLuminance(videoEl, lightingCanvasRef)
-        const eyeLuminances = sampleEyeLuminances(videoEl, currentEyeBoxes, sampleCanvasRef)
+        const eyeLuminances = sampleEyeLuminances(videoEl, currentEyeBoxes, sampleCanvasRef) ?? []
         const coveredEyeCount = eyeLuminances.filter(value => value < OCCLUDED_LUMINANCE_THRESHOLD).length
         const bothEyesCovered = eyeLuminances.length >= 2 && coveredEyeCount >= 2
-        const badLighting = frameLuminance !== null && frameLuminance < BAD_LIGHTING_LUMINANCE_THRESHOLD
+        const badLighting = lightingIssue === 'bad-lighting'
         const coveredStrike = bothEyesCovered && !badLighting
         const isBlinking = currentEAR < BLINK_THRESHOLD || coveredStrike
 
@@ -136,8 +145,8 @@ export function useBlinkDetection({ videoEl, enabled = false, onBlink }) {
         setEyeBoxes(currentEyeBoxes)
         setBlinking(isBlinking)
 
-        if (badLighting) {
-          setWarning('bad-lighting')
+        if (lightingIssue) {
+          setWarning(lightingIssue)
         } else if (bothEyesCovered) {
           setWarning('covered')
         }
@@ -215,7 +224,7 @@ function sampleEyeLuminances(videoEl, eyeBoxes, canvasRef) {
   return samples
 }
 
-function sampleFrameLuminance(videoEl, canvasRef) {
+function sampleFrameLightingStats(videoEl, canvasRef) {
   if (!videoEl.videoWidth || !videoEl.videoHeight) return null
 
   const canvas = canvasRef.current ?? document.createElement('canvas')
@@ -227,5 +236,40 @@ function sampleFrameLuminance(videoEl, canvasRef) {
   if (!ctx) return null
 
   ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height)
-  return averagePixelLuminance(ctx.getImageData(0, 0, canvas.width, canvas.height))
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const { data } = imageData
+  let sum = 0
+  let dark = 0
+  let bright = 0
+  const count = data.length / 4
+
+  for (let i = 0; i < data.length; i += 4) {
+    const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+    sum += lum
+    if (lum < 32) dark++
+    if (lum > 238) bright++
+  }
+
+  return {
+    average: sum / count,
+    darkRatio: dark / count,
+    brightRatio: bright / count,
+  }
+}
+
+function getLightingIssue(stats) {
+  if (!stats) return null
+  if (
+    stats.average < BAD_LIGHTING_LUMINANCE_THRESHOLD ||
+    stats.darkRatio > BAD_LIGHTING_DARK_RATIO_THRESHOLD
+  ) {
+    return 'bad-lighting'
+  }
+  if (
+    stats.average > GLARE_LUMINANCE_THRESHOLD ||
+    stats.brightRatio > GLARE_PIXEL_RATIO_THRESHOLD
+  ) {
+    return 'bad-glare'
+  }
+  return null
 }

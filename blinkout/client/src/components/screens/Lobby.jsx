@@ -44,7 +44,8 @@ export default function Lobby({
   const { attachRef, permission, error, devices, deviceId, requestCamera, selectCamera, stream } = camera
   const { ear, faceDetected, loading, warning, eyeBoxes, blinking } = blink
   const cameraReady = cameraConfirmed && permission === 'granted'
-  const canPlay     = connected && cameraReady
+  const cameraBlocked = !faceDetected || warning === 'bad-lighting' || warning === 'bad-glare' || warning === 'cv-error'
+  const canPlay     = connected && cameraReady && !loading && !cameraBlocked
 
   // Fetch live leaderboard when menu reveals
   useEffect(() => {
@@ -134,9 +135,10 @@ export default function Lobby({
       {calibrationStarted && cameraReady && menuRevealed && (
         <div className="entrance-a__blink-bar">
           <EARBar ear={ear} />
-          <p className={warning === 'covered' || warning === 'bad-lighting' || warning === 'cv-error' ? 'is-warning' : ''}>
+          <p className={warning === 'covered' || warning === 'bad-lighting' || warning === 'bad-glare' || warning === 'cv-error' || !faceDetected ? 'is-warning' : ''}>
             {warning === 'covered'         ? 'Eyes covered — that counts as a blink.'
             : warning === 'bad-lighting'    ? 'Lighting too dark — brighten your face.'
+            : warning === 'bad-glare'       ? 'Too much glare — reduce bright light on your face.'
             : warning === 'cv-error'        ? 'Face detection failed.'
             : faceDetected                  ? 'Face detected.'
             : 'Position yourself in frame.'}
@@ -249,7 +251,7 @@ export default function Lobby({
               className={`entrance-a__menu-item${selectedAction === 'invite' ? ' entrance-a__menu-item--selected' : ''}`}
               type="button"
               onClick={() => triggerMenuAction('invite', onCreateInvite)}
-              disabled={Boolean(selectedAction)}
+              disabled={!canPlay || Boolean(selectedAction)}
             >
               <span>◐</span>
               <strong>Invite a friend</strong>
@@ -260,7 +262,7 @@ export default function Lobby({
               className={`entrance-a__menu-item${selectedAction === 'practice' ? ' entrance-a__menu-item--selected' : ''}`}
               type="button"
               onClick={() => triggerMenuAction('practice', onStartPractice)}
-              disabled={Boolean(selectedAction)}
+              disabled={!canPlay || Boolean(selectedAction)}
             >
               <span>◯</span>
               <strong>Practice mode</strong>

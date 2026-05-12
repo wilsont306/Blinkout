@@ -5,6 +5,7 @@ export default class AppErrorBoundary extends Component {
   constructor(props) {
     super(props)
     this.state = { hasError: false }
+    this.reset = this.reset.bind(this)
   }
 
   static getDerivedStateFromError() {
@@ -15,8 +16,12 @@ export default class AppErrorBoundary extends Component {
     console.error('[BlinkOut render crash]', error, info)
   }
 
+  reset() {
+    this.setState({ hasError: false })
+  }
+
   render() {
-    if (this.state.hasError) return <ResultCrashFallback />
+    if (this.state.hasError) return <ResultCrashFallback onReset={this.reset} />
     return this.props.children
   }
 }
