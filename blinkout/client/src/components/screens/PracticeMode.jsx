@@ -85,9 +85,7 @@ export default function PracticeMode({ camera, blink, personalBest, onEnd }) {
             : 'HOLDING'}
           </em>
           <strong>
-            {phase === 'blinked' ? formatMs(sessionBest)
-            : phase === 'idle' && elapsed === 0 ? '0.00s'
-            : formatMs(elapsed)}
+            {phase === 'idle' && elapsed === 0 ? '0.00s' : formatMs(elapsed)}
           </strong>
           {phase === 'blinked' && newRecord && (
             <span className="practice-timer__record">NEW RECORD</span>

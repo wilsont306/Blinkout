@@ -165,7 +165,9 @@ export default function LiveMatch({
           <span>Elapsed</span>
           <strong aria-label="Match timer" aria-live="off">{formatTime(elapsed)}</strong>
           <em>
-            {warning === 'bad-lighting'
+            {warning === 'photo-face'
+              ? 'Photo detected'
+              : warning === 'bad-lighting'
               ? 'Too dark'
               : warning === 'bad-glare'
               ? 'Too much glare'
