@@ -330,7 +330,7 @@ export default function App() {
   }
 
   function handleCreateInvite() {
-    const code = crypto.randomUUID().slice(0, 8).toUpperCase()
+    const code = (crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '')).slice(0, 12).toUpperCase()
     setInviteCode(code)
     setInviteIsCreator(true)
     window.history.replaceState(null, '', `?invite=${code}`)
