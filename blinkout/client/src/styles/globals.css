@@ -2898,3 +2898,60 @@ body {
 .invite-player__status.is-ok {
   color: rgba(245,239,230,0.6);
 }
+
+/* ── Invite lobby — mobile ────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .poster-screen--invite {
+    padding: 12px;
+    align-items: flex-start;
+  }
+
+  .poster-card--invite {
+    padding: 18px 14px 14px;
+    gap: 10px;
+    width: 100%;
+    min-height: unset;
+    margin: 0;
+  }
+
+  .poster-screen--invite .poster-headline {
+    font-size: clamp(28px, 8vw, 48px);
+  }
+
+  /* Stack cameras vertically and cap their height so card fits on screen */
+  .invite-cameras {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .invite-cam-window {
+    max-height: 160px;
+    aspect-ratio: 4 / 3;
+  }
+
+  .invite-vs {
+    align-self: center;
+    padding: 0;
+  }
+
+  /* Stack actions vertically — Ready first, Leave below */
+  .invite-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .poster-screen--invite .poster-cta--leave {
+    min-width: unset;
+    width: 100%;
+    flex: none;
+  }
+
+  .poster-screen--invite .poster-cta--ready {
+    flex: none;
+    width: 100%;
+  }
+
+  .invite-copy-btn {
+    padding: 10px 12px;
+  }
+}
