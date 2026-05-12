@@ -114,17 +114,25 @@ export default function InviteLobby({
         if (payload.fromSessionId === sessionId) return
         setOpponentFrame(payload.frame)
       })
-      // Presence: detect when the other side disconnects
-      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        const leaving = leftPresences?.[0]
-        if (!leaving || leaving.sessionId === sessionId) return
-        if (!isCreator && leaving.isCreator) {
-          // Creator left — close lobby for guest
-          setLobbyClosed(true)
-        } else if (isCreator && !leaving.isCreator) {
-          // Guest disconnected
-          setOpponent(null)
-          opponentRef.current = null
+      // Explicit close broadcast from creator clicking Leave
+      .on('broadcast', { event: 'LOBBY_CLOSED' }, () => {
+        if (!isCreator) setLobbyClosed(true)
+      })
+      // Presence: detect disconnections (backup — fires up to 30s after tab close)
+      .on('presence', { event: 'leave' }, () => {
+        if (isCreator) {
+          // Check if guest left
+          const present = Object.values(ch.presenceState()).flat()
+          if (!present.some(p => p.sessionId !== sessionId)) {
+            setOpponent(null)
+            opponentRef.current = null
+          }
+        } else {
+          // Check if creator is still present
+          const present = Object.values(ch.presenceState()).flat()
+          if (!present.some(p => p.isCreator && p.sessionId !== sessionId)) {
+            setLobbyClosed(true)
+          }
         }
       })
 
@@ -217,6 +225,15 @@ export default function InviteLobby({
     if (trimmed && NAME_RE.test(trimmed)) onSetName?.(trimmed)
     else setNameInput(playerName)
     setEditingName(false)
+  }
+
+  const handleLeave = () => {
+    if (isCreator && channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast', event: 'LOBBY_CLOSED', payload: {},
+      }).catch(() => {})
+    }
+    onLeave()
   }
 
   const handleCopy = () => {
@@ -441,7 +458,7 @@ export default function InviteLobby({
             </small>
           </button>
 
-          <button className="poster-cta poster-cta--leave" type="button" onClick={onLeave}>
+          <button className="poster-cta poster-cta--leave" type="button" onClick={handleLeave}>
             Leave
             <small>return to lobby</small>
           </button>
