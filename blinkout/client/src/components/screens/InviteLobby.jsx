@@ -22,16 +22,18 @@ export default function InviteLobby({
   const [copied, setCopied]             = useState(false)
   const [starting, setStarting]         = useState(false)
   const [opponentFrame, setOpponentFrame] = useState(null)
+  const [lobbyClosed, setLobbyClosed]   = useState(false)
 
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput]     = useState(playerName)
   const nameInputRef                  = useRef(null)
 
-  const channelRef    = useRef(null)
-  const startedRef    = useRef(false)
-  const lastFrameRef  = useRef(0)
-  const opponentRef   = useRef(null)
-  const iAmReadyRef   = useRef(false)
+  const channelRef          = useRef(null)
+  const startedRef          = useRef(false)
+  const lastFrameRef        = useRef(0)
+  const opponentRef         = useRef(null)
+  const iAmReadyRef         = useRef(false)
+  const presenceCheckRef    = useRef(null)
   // Per-tab session ID — unlike CLIENT_ID this is NOT shared across same-browser tabs
   const sessionId     = useRef(crypto.randomUUID()).current
 
@@ -73,7 +75,10 @@ export default function InviteLobby({
     if (phase !== 'lobby') return
 
     const ch = supabase.channel(`invite:${roomCode}`, {
-      config: { broadcast: { self: false } },
+      config: {
+        broadcast: { self: false },
+        presence: { key: sessionId },
+      },
     })
 
     const myPayload = () => ({ sessionId, clientId: CLIENT_ID, handle: playerName, isReady: iAmReadyRef.current })
@@ -85,14 +90,12 @@ export default function InviteLobby({
     ch
       .on('broadcast', { event: 'LOBBY_HELLO' }, ({ payload }) => {
         if (payload.sessionId === sessionId) return
-        // Someone announced themselves — record them and reply with our current state
         opponentRef.current = { ...payload }
         setOpponent({ ...payload })
         ch.send({ type: 'broadcast', event: 'LOBBY_HELLO_BACK', payload: myPayload() })
       })
       .on('broadcast', { event: 'LOBBY_HELLO_BACK' }, ({ payload }) => {
         if (payload.sessionId === sessionId) return
-        // Reply from someone already in the lobby
         if (!opponentRef.current) {
           opponentRef.current = { ...payload }
           setOpponent({ ...payload })
@@ -111,10 +114,33 @@ export default function InviteLobby({
         if (payload.fromSessionId === sessionId) return
         setOpponentFrame(payload.frame)
       })
+      // Presence: detect when the other side disconnects
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        const leaving = leftPresences?.[0]
+        if (!leaving || leaving.sessionId === sessionId) return
+        if (!isCreator && leaving.isCreator) {
+          // Creator left — close lobby for guest
+          setLobbyClosed(true)
+        } else if (isCreator && !leaving.isCreator) {
+          // Guest disconnected
+          setOpponent(null)
+          opponentRef.current = null
+        }
+      })
 
     ch.subscribe(status => {
       if (status !== 'SUBSCRIBED') return
+      ch.track({ sessionId, handle: playerName, isCreator })
       sendHello()
+
+      // Guest: if creator is not present within 3s, lobby is dead
+      if (!isCreator) {
+        presenceCheckRef.current = setTimeout(() => {
+          const present = Object.values(ch.presenceState()).flat()
+          const hasCreator = present.some(p => p.isCreator && p.sessionId !== sessionId)
+          if (!hasCreator) setLobbyClosed(true)
+        }, 3000)
+      }
     })
 
     // Re-send hello every 2s until opponent detected (handles late joiners)
@@ -125,11 +151,12 @@ export default function InviteLobby({
     channelRef.current = ch
     return () => {
       clearInterval(helloT)
+      if (presenceCheckRef.current) clearTimeout(presenceCheckRef.current)
       supabase.removeChannel(ch)
       channelRef.current = null
       opponentRef.current = null
     }
-  }, [phase, roomCode, playerName])
+  }, [phase, roomCode, playerName, isCreator])
 
   // ── Video frame relay ──────────────────────────────────────────
   useEffect(() => {
@@ -168,6 +195,20 @@ export default function InviteLobby({
     setStarting(true)
     setTimeout(() => onMatchStart(roomCode, opponent.handle, opponent.clientId), 900)
   }, [iAmReady, opponent?.isReady, opponent?.handle, opponent?.clientId, roomCode, onMatchStart])
+
+  // Auto-close lobby when no opponent has joined for 20 minutes (creator only)
+  useEffect(() => {
+    if (!isCreator || phase !== 'lobby' || opponent) return
+    const t = setTimeout(() => onLeave(), 20 * 60 * 1000)
+    return () => clearTimeout(t)
+  }, [isCreator, phase, opponent, onLeave])
+
+  // Redirect when lobby is detected as closed
+  useEffect(() => {
+    if (!lobbyClosed) return
+    const t = setTimeout(() => onLeave(), 3000)
+    return () => clearTimeout(t)
+  }, [lobbyClosed, onLeave])
 
   // ── Name edit ──────────────────────────────────────────────────
   useEffect(() => { if (editingName) nameInputRef.current?.focus() }, [editingName])
@@ -318,7 +359,9 @@ export default function InviteLobby({
         <div className="poster-kicker">Invite</div>
         <h1 className="poster-headline">Private <span>duel.</span></h1>
         <p className="poster-subline">
-          {starting
+          {lobbyClosed
+            ? 'This lobby has closed — returning to lobby…'
+            : starting
             ? 'Both ready — entering the duel…'
             : opponent
             ? `${opponent.handle} has joined`
@@ -384,7 +427,7 @@ export default function InviteLobby({
             className={`poster-cta poster-cta--ready${iAmReady ? ' poster-cta--waiting' : ''}${starting ? ' poster-cta--glow' : ''}`}
             type="button"
             onClick={handleReady}
-            disabled={!canReady}
+            disabled={!canReady || lobbyClosed}
           >
             {starting ? 'Starting…' : iAmReady ? `Waiting for ${opponent?.handle}…` : 'Ready'}
             <small>
