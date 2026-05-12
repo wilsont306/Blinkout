@@ -34,7 +34,9 @@ await fastify.register(cors, { origin: CLIENT_ORIGINS })
 
 await fastify.register(rateLimit, { global: false })
 
-fastify.get('/health', async () => ({ status: 'ok', ts: Date.now() }))
+fastify.get('/health', {
+  config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+}, async () => ({ status: 'ok' }))
 
 const NAME_RE = /^[\w\s\-\.]{1,30}$/
 
