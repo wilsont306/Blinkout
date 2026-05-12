@@ -1,3 +1,5 @@
+import { playClick } from '../../lib/sounds.js'
+
 export default function Result({
   resultData,
   playerName,
@@ -95,7 +97,7 @@ export default function Result({
           <button
             className={`poster-cta poster-cta--result result-cta--rematch${rematchStatus === 'requested' ? ' poster-cta--waiting' : ''}${rematchStatus === 'opponent-wants' ? ' poster-cta--glow' : ''}`}
             type="button"
-            onClick={handleRematchClick}
+            onClick={() => { playClick(); handleRematchClick() }}
             disabled={rematchStatus === 'declined'}
           >
             {rematchLabel}
@@ -105,7 +107,7 @@ export default function Result({
           <button
             className="poster-cta poster-cta--result result-cta--new"
             type="button"
-            onClick={onNewMatch}
+            onClick={() => { playClick(); onNewMatch?.() }}
           >
             New match
             <small>find someone else</small>
@@ -114,7 +116,7 @@ export default function Result({
           <button
             className="poster-cta poster-cta--result result-cta--leave"
             type="button"
-            onClick={onLeave}
+            onClick={() => { playClick(); onLeave?.() }}
           >
             Back to lobby
             <small>return to lobby</small>
