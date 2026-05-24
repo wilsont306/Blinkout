@@ -1,0 +1,13 @@
+{
+  "name": "your-project-name",
+  "version": "1.0.0",
+  "description": "Your project description",
+  "main": "index.js",
+  "scripts": {
+    "test": "your-test-command"
+  },
+  "dependencies": {
+    "your-dependencies": "version"
+  },
+  "devDependencies": {}
+}
