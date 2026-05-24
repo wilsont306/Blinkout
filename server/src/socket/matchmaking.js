@@ -7,18 +7,29 @@ const rooms = new Map()  // matchId  → room
 export function setupMatchmaking(io) {
   io.on('connection', (socket) => {
     socket.on('QUEUE_JOIN', ({ displayName }) => {
+      if (queue.has(socket.id)) return  // already queued, ignore duplicate
       const playerId = uuidv4()
+      const safeName = (typeof displayName === 'string' ? displayName : '')
+        .replace(/[<>"'&]/g, '')
+        .trim()
+        .slice(0, 32) || `Player_${socket.id.slice(0, 4)}`
       queue.set(socket.id, {
         socket,
         playerId,
-        displayName: displayName || `Player_${socket.id.slice(0, 4)}`,
+        displayName: safeName,
       })
       console.log(`[queue] ${displayName} joined — size: ${queue.size}`)
       tryPair(io)
     })
 
-    socket.on('EAR_UPDATE', ({ matchId, ear, timestamp }) => {
-      rooms.get(matchId)?.processEAR(socket.id, ear, timestamp)
+    socket.on('QUEUE_LEAVE', () => {
+      if (queue.delete(socket.id)) {
+        console.log(`[queue] ${socket.id} left — size: ${queue.size}`)
+      }
+    })
+
+    socket.on('EAR_UPDATE', ({ matchId, ear }) => {
+      rooms.get(matchId)?.processEAR(socket.id, ear)
     })
 
     socket.on('FORFEIT', ({ matchId, reason }) => {

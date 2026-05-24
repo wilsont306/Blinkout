@@ -10,7 +10,7 @@ export function createGameRoom({ matchId, player1, player2, io, onEnd }) {
   const startMs = Date.now()
   let ended = false
 
-  function processEAR(socketId, ear, timestamp) {
+  function processEAR(socketId, ear) {
     if (ended) return
     const p = players[socketId]
     if (!p) return
@@ -27,7 +27,7 @@ export function createGameRoom({ matchId, player1, player2, io, onEnd }) {
 
     if (p.blinkCount >= BLINK_FRAMES && !p.blinked) {
       p.blinked = true
-      const blinkTs = timestamp - startMs
+      const blinkTs = Date.now() - startMs  // server-computed, not client-provided
 
       const winnerId = socketId === player1.socketId ? player2.socketId : player1.socketId
       const winner   = players[winnerId]

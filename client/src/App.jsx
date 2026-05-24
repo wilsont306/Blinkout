@@ -54,7 +54,7 @@ export default function App() {
     }))
   }, [matchData])
 
-  const { connected, joinQueue, sendEAR, forfeit } = useSocket({
+  const { connected, joinQueue, leaveQueue, sendEAR, forfeit } = useSocket({
     onMatchFound:    handleMatchFound,
     onBlinkDetected: handleBlinkDetected,
     onMatchEnd:      handleMatchEnd,
@@ -83,6 +83,7 @@ export default function App() {
   }
 
   function handleCancelQueue() {
+    leaveQueue()
     setScreen(SCREEN.LOBBY)
   }
 
@@ -109,8 +110,8 @@ export default function App() {
   }
 
   function handleNavigate(target) {
-    // Only allow nav when not in an active match
-    if (screen === SCREEN.MATCH) return
+    // Block nav during active match or countdown
+    if (screen === SCREEN.MATCH || screen === SCREEN.PREMATCH) return
     if (target === 'lobby') {
       setScreen(SCREEN.LOBBY)
     } else if (target === 'leaderboard') {
@@ -119,7 +120,7 @@ export default function App() {
   }
 
   // ── Render ────────────────────────────────────────────────
-  const showNav = screen !== SCREEN.MATCH && screen !== SCREEN.PREMATCH
+  const showNav = screen !== SCREEN.MATCH
 
   return (
     <div className="app-shell">
@@ -157,6 +158,7 @@ export default function App() {
             matchData={matchData}
             playerName={PLAYER_NAME}
             onMatchStart={handleMatchStart}
+            onCancel={handleForfeit}
           />
         )}
 

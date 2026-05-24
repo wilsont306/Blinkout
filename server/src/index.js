@@ -21,15 +21,22 @@ fastify.get('/leaderboard', async (req) => {
   return leaderboard.slice(0, 50)
 })
 
-fastify.post('/leaderboard', async (req) => {
-  const { handle, streak, bestHold, matches } = req.body
-  const existing = leaderboard.find(r => r.handle === handle)
+fastify.post('/leaderboard', async (req, reply) => {
+  const { handle, streak, bestHold, matches } = req.body ?? {}
+  if (typeof handle !== 'string' || !handle.trim()) {
+    return reply.code(400).send({ error: 'invalid handle' })
+  }
+  const safeName  = handle.replace(/[<>"'&]/g, '').trim().slice(0, 32)
+  const safeStreak   = Number.isFinite(streak)   && streak   >= 0 ? Math.floor(streak)   : 0
+  const safeBestHold = Number.isFinite(bestHold)  && bestHold >= 0 ? Math.floor(bestHold)  : 0
+
+  const existing = leaderboard.find(r => r.handle === safeName)
   if (existing) {
-    existing.streak   = Math.max(existing.streak, streak)
-    existing.bestHold = Math.max(existing.bestHold, bestHold)
+    existing.streak   = Math.max(existing.streak, safeStreak)
+    existing.bestHold = Math.max(existing.bestHold, safeBestHold)
     existing.matches += 1
   } else {
-    leaderboard.push({ handle, streak, bestHold, matches: matches ?? 1 })
+    leaderboard.push({ handle: safeName, streak: safeStreak, bestHold: safeBestHold, matches: 1 })
   }
   leaderboard.sort((a, b) => b.streak - a.streak)
   leaderboard.forEach((r, i) => (r.rank = i + 1))

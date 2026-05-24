@@ -6,10 +6,6 @@ export default function Result({ resultData, playerName, stats, onRematch, onRet
   const { winner, loser, duration, blinkTimestamp, myPlayerId, opponentName } = resultData
   const isWin = winner === myPlayerId
 
-  const holdTime = isWin
-    ? `${(blinkTimestamp / 1000).toFixed(2)}s`
-    : `${(blinkTimestamp / 1000).toFixed(2)}s`
-
   const statCards = [
     { label: 'Hold Time',    value: `${(duration / 1000).toFixed(2)}s` },
     { label: isWin ? 'Win Streak'  : 'Loss Streak', value: isWin ? stats.streak : stats.losses },

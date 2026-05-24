@@ -29,13 +29,21 @@ export function useSocket({ onMatchFound, onBlinkDetected, onMatchEnd }) {
     socketRef.current?.emit('QUEUE_JOIN', { displayName })
   }, [])
 
+  const leaveQueue = useCallback(() => {
+    socketRef.current?.emit('QUEUE_LEAVE')
+  }, [])
+
+  const lastEARRef = useRef(0)
   const sendEAR = useCallback((matchId, ear) => {
-    socketRef.current?.emit('EAR_UPDATE', { matchId, ear, timestamp: Date.now() })
+    const now = Date.now()
+    if (now - lastEARRef.current < 100) return  // max 10/sec
+    lastEARRef.current = now
+    socketRef.current?.emit('EAR_UPDATE', { matchId, ear })
   }, [])
 
   const forfeit = useCallback((matchId, reason = 'user') => {
     socketRef.current?.emit('FORFEIT', { matchId, reason })
   }, [])
 
-  return { connected, joinQueue, sendEAR, forfeit }
+  return { connected, joinQueue, leaveQueue, sendEAR, forfeit }
 }

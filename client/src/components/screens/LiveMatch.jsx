@@ -37,11 +37,6 @@ export default function LiveMatch({
     setAlertVisible(ear < 0.28)
   }, [ear])
 
-  // Notify parent when local blink fires (server also confirms via MATCH_END)
-  useEffect(() => {
-    blink.resetBlink && (window.__blinkResetRef = blink.resetBlink)
-  }, [blink.resetBlink])
-
   const formatTime = (ms) => {
     const s = ms / 1000
     const m = Math.floor(s / 60)

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import CameraPreview from '../camera/CameraPreview.jsx'
+import Button from '../ui/Button.jsx'
 
 const SEQUENCE = [3, 2, 1, 'GO']
 
-export default function PreMatch({ camera, blink, matchData, playerName, onMatchStart }) {
+export default function PreMatch({ camera, blink, matchData, playerName, onMatchStart, onCancel }) {
   const [step, setStep] = useState(0)
   const [flashing, setFlashing] = useState(false)
 
@@ -90,6 +91,10 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
         </span>
         <span style={{ color: 'var(--accent-green)' }}>● LIGHTING OK</span>
       </div>
+
+      {step < SEQUENCE.length - 1 && (
+        <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+      )}
     </div>
   )
 }

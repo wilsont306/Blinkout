@@ -593,3 +593,157 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Mobile responsive ────────────────────────────────────── */
+@media (max-width: 768px) {
+  html, body, #root {
+    overflow: auto;  /* allow scrolling on small screens */
+  }
+
+  /* Nav rail becomes a bottom bar */
+  .app-shell {
+    flex-direction: column-reverse;
+  }
+
+  .nav-rail {
+    width: 100%;
+    height: 56px;
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 0 var(--sp-4);
+    border-right: none;
+    border-top: 1px solid var(--border-subtle);
+    gap: 0;
+  }
+
+  .nav-rail__brand {
+    writing-mode: horizontal-tb;
+    transform: none;
+    margin-bottom: 0;
+    font-size: 15px;
+  }
+
+  /* Lobby: stack vertically */
+  .lobby {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100%;
+    padding: var(--sp-4);
+    gap: var(--sp-4);
+  }
+
+  .lobby__hero {
+    padding: var(--sp-4);
+    gap: var(--sp-4);
+    justify-content: flex-start;
+  }
+
+  .lobby__tagline {
+    font-size: clamp(28px, 8vw, 40px);
+  }
+
+  /* Matchmaking: keep centered, fits mobile naturally */
+  .matchmaking {
+    height: auto;
+    min-height: calc(100vh - 56px);
+    padding: var(--sp-6);
+  }
+
+  /* PreMatch: stack feeds vertically */
+  .prematch {
+    height: auto;
+    min-height: calc(100vh - 56px);
+    padding: var(--sp-4);
+    gap: var(--sp-4);
+  }
+
+  .prematch__feeds {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-3);
+  }
+
+  .prematch__countdown-digit {
+    font-size: 80px;
+  }
+
+  /* LiveMatch: stack arena vertically */
+  .match {
+    height: auto;
+    min-height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+
+  .match__arena {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+
+  .match__vs {
+    padding: var(--sp-2) 0;
+    font-size: 12px;
+  }
+
+  .match__topbar {
+    padding: var(--sp-2) var(--sp-3);
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+  }
+
+  .match__timer {
+    font-size: 16px;
+  }
+
+  /* Result: fits naturally, ensure scrollable */
+  .result {
+    height: auto;
+    min-height: calc(100vh - 56px);
+    padding: var(--sp-6) var(--sp-4);
+    gap: var(--sp-4);
+    overflow-y: auto;
+  }
+
+  .result__headline {
+    font-size: 38px;
+  }
+
+  .result__stats {
+    grid-template-columns: 1fr 1fr;
+    max-width: 100%;
+  }
+
+  .result__actions {
+    max-width: 100%;
+  }
+
+  /* Leaderboard: scrollable */
+  .leaderboard {
+    height: auto;
+    min-height: calc(100vh - 56px);
+    padding: var(--sp-4);
+    overflow-y: auto;
+  }
+
+  .leaderboard__header {
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+  }
+
+  .tab-group {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  /* Buttons: full width feels better on mobile */
+  .btn-lg {
+    height: 48px;
+    font-size: 15px;
+  }
+}
