@@ -43,6 +43,9 @@ export function useGame({
     cb.current = { onMatchFound, onMatchEnd, onOpponentEAR, onOpponentVideoFrame, onRematchRequested, onRematchDeclined, onOpponentStrike }
   })
 
+  // Voice-chat signaling callbacks (set from App via voiceCbRef)
+  const voiceCb = useRef({})
+
   // Connection health via a heartbeat channel
   useEffect(() => {
     const ch = supabase.channel('_hb')
@@ -117,6 +120,11 @@ export function useGame({
         oppRematch.current = false
         cb.current.onRematchDeclined?.()
       })
+      // ── Voice-chat signaling ────────────────────────────────
+      .on('broadcast', { event: 'VOICE_OFFER' },  ({ payload }) => voiceCb.current.onVoiceOffer?.(payload))
+      .on('broadcast', { event: 'VOICE_ANSWER' }, ({ payload }) => voiceCb.current.onVoiceAnswer?.(payload))
+      .on('broadcast', { event: 'VOICE_ICE' },    ({ payload }) => voiceCb.current.onVoiceIce?.(payload))
+      .on('broadcast', { event: 'MIC_LEVEL' },    ({ payload }) => voiceCb.current.onOpponentMicLevel?.(payload))
       .on('broadcast', { event: 'REMATCH_START' }, ({ payload }) => {
         // Guest (larger ID) receives the new matchId from host
         if (CLIENT_ID > opponentId) {
@@ -297,6 +305,27 @@ export function useGame({
     })
   }, [])
 
+  // ── Voice-chat signaling senders ─────────────────────────────
+  const sendVoiceOffer = useCallback((sdp) => {
+    gameChRef.current?.send({ type: 'broadcast', event: 'VOICE_OFFER', payload: sdp })
+  }, [])
+
+  const sendVoiceAnswer = useCallback((sdp) => {
+    gameChRef.current?.send({ type: 'broadcast', event: 'VOICE_ANSWER', payload: sdp })
+  }, [])
+
+  const sendVoiceIce = useCallback((candidate) => {
+    gameChRef.current?.send({ type: 'broadcast', event: 'VOICE_ICE', payload: { candidate } })
+  }, [])
+
+  const sendMicLevel = useCallback((level) => {
+    gameChRef.current?.send({ type: 'broadcast', event: 'MIC_LEVEL', payload: { level } })
+  }, [])
+
+  const setVoiceCallbacks = useCallback((cbs) => {
+    voiceCb.current = cbs
+  }, [])
+
   const startInviteMatch = useCallback((matchId, opponentHandle, opponentId) => {
     const md = { matchId, myPlayerId: CLIENT_ID, opponentId, opponentName: opponentHandle }
     matchDataRef.current = md
@@ -304,5 +333,10 @@ export function useGame({
     cb.current.onMatchFound?.(md)
   }, [setupGameChannel])
 
-  return { connected, joinQueue, sendEAR, sendVideoFrame, sendBlink, sendStrike, forfeit, requestRematch, cancelRematch, startInviteMatch }
+  return {
+    connected, joinQueue, sendEAR, sendVideoFrame, sendBlink, sendStrike,
+    forfeit, requestRematch, cancelRematch, startInviteMatch,
+    // voice
+    sendVoiceOffer, sendVoiceAnswer, sendVoiceIce, sendMicLevel, setVoiceCallbacks,
+  }
 }

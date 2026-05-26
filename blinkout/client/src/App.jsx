@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useCamera } from './hooks/useCamera.js'
 import { useBlinkDetection } from './hooks/useBlinkDetection.js'
 import { useGame, CLIENT_ID } from './hooks/useGame.js'
+import { useMicrophone } from './hooks/useMicrophone.js'
+import { useVoiceChat } from './hooks/useVoiceChat.js'
 import { supabase } from './lib/supabase.js'
 
 import Lobby from './components/screens/Lobby.jsx'
@@ -52,8 +54,14 @@ export default function App() {
   const [practiceBest, setPracticeBest]     = useState(() =>
     parseInt(localStorage.getItem('blinkout_solo_best') || '0', 10)
   )
-  const [myLives, setMyLives]           = useState(3)
-  const [opponentLives, setOpponentLives] = useState(3)
+  const [myLives, setMyLives]                 = useState(3)
+  const [opponentLives, setOpponentLives]     = useState(3)
+  const [opponentMicLevel, setOpponentMicLevel] = useState(0)
+
+  // Voice-chat signaling events — stored as state so useVoiceChat re-runs on each new event
+  const [voiceOfferEvent, setVoiceOfferEvent]   = useState(null)
+  const [voiceAnswerEvent, setVoiceAnswerEvent] = useState(null)
+  const [voiceIceEvent, setVoiceIceEvent]       = useState(null)
 
   const playerNameRef     = useRef(playerName)
   const queueAdvanceRef   = useRef(null)
@@ -66,6 +74,7 @@ export default function App() {
   useEffect(() => { playerNameRef.current = playerName }, [playerName])
 
   const camera = useCamera()
+  const mic    = useMicrophone()
 
   // ── Game event handlers ───────────────────────────────────────
   const handleMatchFound = useCallback((data) => {
@@ -155,6 +164,7 @@ export default function App() {
   const {
     connected, joinQueue, sendEAR, sendVideoFrame, sendBlink, sendStrike,
     forfeit, requestRematch, cancelRematch, startInviteMatch,
+    sendVoiceOffer, sendVoiceAnswer, sendVoiceIce, sendMicLevel, setVoiceCallbacks,
   } = useGame({
     onMatchFound:         handleMatchFound,
     onMatchEnd:           handleMatchEnd,
@@ -164,6 +174,47 @@ export default function App() {
     onRematchDeclined:    handleRematchDeclined,
     onOpponentStrike:     handleOpponentStrike,
   })
+
+  // Register voice signaling callbacks into useGame's channel listener
+  useEffect(() => {
+    setVoiceCallbacks({
+      onVoiceOffer:       (payload) => setVoiceOfferEvent(payload),
+      onVoiceAnswer:      (payload) => setVoiceAnswerEvent(payload),
+      onVoiceIce:         (payload) => setVoiceIceEvent(payload),
+      onOpponentMicLevel: ({ level }) => setOpponentMicLevel(level ?? 0),
+    })
+  }, [setVoiceCallbacks])
+
+  // WebRTC voice chat — only active during live match
+  const amInitiator = CLIENT_ID < (matchData?.opponentId ?? '')
+  const { rtcConnected, remoteAudioLevel } = useVoiceChat({
+    micStreamRef:   mic.stream,
+    amInitiator,
+    enabled:        screen === SCREEN.MATCH && mic.permission === 'granted',
+    sendVoiceOffer,
+    sendVoiceAnswer,
+    sendVoiceIce,
+    offerEvent:     voiceOfferEvent,
+    answerEvent:    voiceAnswerEvent,
+    iceEvent:       voiceIceEvent,
+  })
+
+  // Broadcast local mic level to opponent during match (~8/sec via interval)
+  useEffect(() => {
+    if (screen !== SCREEN.MATCH || !matchData?.matchId || mic.permission !== 'granted') return
+    const t = setInterval(() => {
+      sendMicLevel(mic.isMuted ? 0 : mic.audioLevel)
+    }, 125)
+    return () => clearInterval(t)
+  }, [screen, matchData?.matchId, mic.permission, mic.isMuted, mic.audioLevel, sendMicLevel])
+
+  // Reset voice state when match changes
+  useEffect(() => {
+    setVoiceOfferEvent(null)
+    setVoiceAnswerEvent(null)
+    setVoiceIceEvent(null)
+    setOpponentMicLevel(0)
+  }, [matchData?.matchId])
 
   useEffect(() => {
     return () => { if (queueAdvanceRef.current) clearTimeout(queueAdvanceRef.current) }
@@ -260,6 +311,8 @@ export default function App() {
     setOpponentFrame(null)
     setBlinkActive(true)
     setScreen(SCREEN.MATCH)
+    // Request mic if not yet granted — non-blocking, match proceeds regardless
+    if (mic.permission === 'prompt') mic.requestMic()
   }
 
   function handleNoFaceForfeit() {
@@ -436,6 +489,14 @@ export default function App() {
             opponentFrame={opponentFrame}
             lives={{ mine: myLives, opponent: opponentLives }}
             onForfeit={handleForfeit}
+            mic={{
+              permission:      mic.permission,
+              audioLevel:      mic.isMuted ? 0 : mic.audioLevel,
+              isMuted:         mic.isMuted,
+              toggleMute:      mic.toggleMute,
+              rtcConnected,
+              remoteAudioLevel: mic.isMuted ? opponentMicLevel : remoteAudioLevel || opponentMicLevel,
+            }}
           />
         )}
 
