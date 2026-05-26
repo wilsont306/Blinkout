@@ -1621,6 +1621,53 @@ body {
   font-size: 9px;
 }
 
+/* ── Mic row (same grid layout as EAR row) ──────────────── */
+.duel-card__mic {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 9px;
+}
+
+.mic-bar-track {
+  height: 8px;
+  border: 1px solid var(--poster-line, var(--border-subtle));
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+.mic-bar-track--off {
+  opacity: 0.25;
+}
+
+.mic-bar-fill {
+  height: 100%;
+  background: repeating-linear-gradient(45deg, var(--accent-green) 0 4px, rgba(76,175,80,0.4) 4px 6px);
+  border-radius: 0;
+  transition: width 80ms linear;
+}
+
+.mic-bar-fill--loud {
+  background: repeating-linear-gradient(45deg, var(--accent-amber) 0 4px, rgba(245,158,11,0.4) 4px 6px);
+}
+
+/* Mute toggle button */
+.mic-mute-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px;
+  opacity: 0.85;
+  transition: opacity 120ms, transform 120ms;
+  border-radius: 3px;
+}
+.mic-mute-btn:hover { opacity: 1; transform: scale(1.15); }
+.mic-mute-btn--muted { opacity: 0.4; }
+
 .poster-card--duel .ear-bar-track {
   height: 8px;
   border: 1px solid var(--poster-line);
@@ -1642,8 +1689,13 @@ body {
 .poster-screen--duel .duel-card__name em,
 .poster-screen--duel .life-box__label,
 .poster-screen--duel .duel-card__ear,
+.poster-screen--duel .duel-card__mic,
 .poster-screen--duel .poster-opponent-feed {
   color: rgba(245,239,230,0.55);
+}
+
+.poster-screen--duel .mic-bar-track {
+  border-color: var(--poster-line);
 }
 
 .poster-screen--duel .duel-timer em,

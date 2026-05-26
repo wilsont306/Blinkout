@@ -17,6 +17,7 @@ export default function LiveMatch({
   opponentFrame = null,
   lives = { mine: 3, opponent: 3 },
   onForfeit,
+  mic = null,   // { permission, audioLevel, isMuted, toggleMute, rtcConnected, remoteAudioLevel }
 }) {
   const [elapsed, setElapsed] = useState(0)
   const [alertVisible, setAlertVisible] = useState(false)
@@ -189,6 +190,19 @@ export default function LiveMatch({
             lives={lives.mine}
             ear={ear}
             flash={myFlash}
+            micLevel={mic?.audioLevel ?? 0}
+            micEnabled={mic?.permission === 'granted'}
+            micSlot={mic?.permission === 'granted' && (
+              <button
+                className={`mic-mute-btn${mic.isMuted ? ' mic-mute-btn--muted' : ''}`}
+                type="button"
+                onClick={mic.toggleMute}
+                title={mic.isMuted ? 'Unmute microphone' : 'Mute microphone'}
+                aria-label={mic.isMuted ? 'Unmute microphone' : 'Mute microphone'}
+              >
+                {mic.isMuted ? '🔇' : '🎤'}
+              </button>
+            )}
           >
             <CameraPreview
               attachRef={attachRef}
@@ -212,6 +226,8 @@ export default function LiveMatch({
             lives={lives.opponent}
             ear={opponentEAR}
             flash={oppFlash}
+            micLevel={mic?.remoteAudioLevel ?? 0}
+            micEnabled={!!mic?.rtcConnected}
           >
             <div className="poster-opponent-feed">
               {opponentFrame ? (
@@ -244,7 +260,7 @@ export default function LiveMatch({
   )
 }
 
-function DuelCard({ corner, number, name, role, statusColor, lives, ear, flash, children }) {
+function DuelCard({ corner, number, name, role, statusColor, lives, ear, flash, micLevel, micEnabled, micSlot, children }) {
   return (
     <article className={`duel-card${flash ? ' duel-card--flash' : ''}`}>
       <div className="duel-card__corner">
@@ -262,7 +278,24 @@ function DuelCard({ corner, number, name, role, statusColor, lives, ear, flash, 
         <span>EAR</span>
         <EARBar ear={ear} />
       </div>
+      <div className="duel-card__mic">
+        <span>MIC</span>
+        <MicBar level={micLevel} enabled={micEnabled} />
+        {micSlot}
+      </div>
     </article>
+  )
+}
+
+function MicBar({ level, enabled }) {
+  const pct = Math.min(100, Math.round(level * 100 * 2.5)) // boost sensitivity
+  return (
+    <div className={`mic-bar-track${!enabled ? ' mic-bar-track--off' : ''}`} role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Microphone level">
+      <div
+        className={`mic-bar-fill${pct > 70 ? ' mic-bar-fill--loud' : ''}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
   )
 }
 
