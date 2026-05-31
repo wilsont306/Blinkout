@@ -83,7 +83,8 @@ export default function Lobby({
 
   const handleConfirmCamera = async () => {
     if (permission !== 'granted' || !stream) {
-      await requestCamera()
+      const granted = await requestCamera()
+      if (granted) setCameraConfirmed(true)
       return
     }
     setCameraConfirmed(true)
