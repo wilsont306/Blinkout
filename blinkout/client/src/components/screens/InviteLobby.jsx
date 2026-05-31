@@ -59,7 +59,11 @@ export default function InviteLobby({
   }
 
   const handleConfirmCamera = async () => {
-    if (permission !== 'granted' || !stream) { await requestCamera(); return }
+    if (permission !== 'granted' || !stream) {
+      const granted = await requestCamera()
+      if (granted) { setCamConfirmed(true); setPhase('lobby') }
+      return
+    }
     setCamConfirmed(true)
     setPhase('lobby')
   }
