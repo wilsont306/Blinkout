@@ -1,16 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import CameraPreview from '../camera/CameraPreview.jsx'
-import Button from '../ui/Button.jsx'
 
 const SEQUENCE = [3, 2, 1, 'GO']
+const START_BLOCKING_WARNINGS = new Set(['covered', 'bad-lighting', 'bad-glare', 'cv-error'])
 
-export default function PreMatch({ camera, blink, matchData, playerName, onMatchStart, onCancel }) {
+export default function PreMatch({ camera, blink, matchData, playerName, onMatchStart, onNoFaceForfeit }) {
   const [step, setStep] = useState(0)
   const [flashing, setFlashing] = useState(false)
+  const faceDetectedRef = useRef(false)
+  const warningRef = useRef(null)
 
   const { attachRef, stream } = camera
-  const { faceDetected, loading } = blink
+  const { faceDetected, loading, warning, eyeBoxes, blinking } = blink
   const current = SEQUENCE[step]
+
+  useEffect(() => {
+    faceDetectedRef.current = faceDetected
+    warningRef.current = warning
+  }, [faceDetected, warning])
 
   useEffect(() => {
     if (step >= SEQUENCE.length - 1) {
@@ -18,6 +25,14 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
       setFlashing(true)
       const t = setTimeout(() => {
         setFlashing(false)
+        if (!faceDetectedRef.current) {
+          onNoFaceForfeit?.('no-face')
+          return
+        }
+        if (START_BLOCKING_WARNINGS.has(warningRef.current)) {
+          onNoFaceForfeit?.(warningRef.current)
+          return
+        }
         onMatchStart()
       }, 500)
       return () => clearTimeout(t)
@@ -34,13 +49,16 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
     >
       <div className="prematch__feeds">
         {/* Local feed */}
-        <div className="prematch__feed">
+        <div className="prematch__feed prematch__feed--local">
           <span className="prematch__label">You</span>
           <CameraPreview
             attachRef={attachRef}
+            videoEl={camera.videoEl}
             faceDetected={faceDetected}
             loading={loading}
-            style={{ width: 160, height: 120, borderRadius: 'var(--radius-md)' }}
+            eyeBoxes={eyeBoxes}
+            blinking={blinking}
+            style={{ width: '100%', aspectRatio: '4 / 3', borderRadius: 'var(--radius-md)' }}
           />
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
             {playerName}
@@ -48,7 +66,7 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
         </div>
 
         {/* Countdown */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: 140 }}>
+        <div className="prematch__countdown">
           <div
             key={step}
             className="prematch__countdown-digit"
@@ -63,19 +81,19 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
         </div>
 
         {/* Opponent placeholder */}
-        <div className="prematch__feed">
+        <div className="prematch__feed prematch__feed--opponent">
           <span className="prematch__label">Opponent</span>
-          <div style={{
-            width: 160, height: 120, borderRadius: 'var(--radius-md)',
-            background: 'var(--surface-primary)',
-            border: '1px solid var(--border-emphasis)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexDirection: 'column', gap: 4,
-          }}>
+          <div className="prematch__opponent-card">
             <span style={{ fontSize: 24 }}>👤</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
               {matchData?.opponentName}
             </span>
+          </div>
+          <div className="prematch__rules" aria-label="Match rules">
+            <strong>Rules</strong>
+            <span>Three lives.</span>
+            <span>Each blink removes one life.</span>
+            <span>Covering both eyes or leaving the tab counts as a strike.</span>
           </div>
         </div>
       </div>
@@ -86,15 +104,19 @@ export default function PreMatch({ camera, blink, matchData, playerName, onMatch
         letterSpacing: '0.1em', textTransform: 'uppercase',
         display: 'flex', gap: 'var(--sp-4)',
       }}>
-        <span style={{ color: faceDetected ? 'var(--accent-green)' : 'var(--accent-amber)' }}>
-          {faceDetected ? '● FACE DETECTED' : '○ NO FACE'}
+        <span style={{ color: faceDetected && !START_BLOCKING_WARNINGS.has(warning) ? 'var(--accent-green)' : 'var(--accent-amber)' }}>
+          {warning === 'bad-lighting' ? '● LIGHTING TOO DARK'
+          : warning === 'bad-glare' ? '● TOO MUCH GLARE'
+          : warning === 'covered' ? '● EYES COVERED'
+          : warning === 'cv-error' ? '● FACE DETECTION ERROR'
+          : faceDetected ? '● FACE DETECTED' : '○ NO FACE'}
         </span>
-        <span style={{ color: 'var(--accent-green)' }}>● LIGHTING OK</span>
+        <span style={{ color: warning === 'bad-lighting' || warning === 'bad-glare' ? 'var(--accent-amber)' : 'var(--accent-green)' }}>
+          {warning === 'bad-lighting' ? '● BRIGHTEN FACE'
+          : warning === 'bad-glare' ? '● REDUCE GLARE'
+          : '● LIGHTING OK'}
+        </span>
       </div>
-
-      {step < SEQUENCE.length - 1 && (
-        <Button variant="ghost" onClick={onCancel}>Cancel</Button>
-      )}
     </div>
   )
 }
