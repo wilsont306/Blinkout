@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Wilson\\\\blinkout\" -Recurse -Force)",
-      "Bash(Select-Object FullName)",
-      "PowerShell(head -100)"
-    ]
-  }
-}

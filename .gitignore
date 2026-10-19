@@ -2,6 +2,11 @@ node_modules/
 dist/
 .env
 .env.local
+.env.*.local
 *.log
 .DS_Store
 Thumbs.db
+
+# Local editor and agent settings (may contain machine paths)
+.claude/
+.vscode/
