@@ -295,7 +295,7 @@ export default function InviteLobby({
         <div className="entrance-a__status">
           <span className={permission === 'granted' ? 'is-live' : ''} />
           {permission === 'granted'
-            ? 'CAMERA LIVE · NO VIDEO LEAVES YOUR DEVICE'
+            ? 'CAMERA LIVE · FACE MESH STAYS ON DEVICE'
             : 'STAND BY · CAMERA NEEDED'}
         </div>
 

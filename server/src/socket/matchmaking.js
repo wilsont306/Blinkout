@@ -1,39 +1,100 @@
 import { v4 as uuidv4 } from 'uuid'
 import { createGameRoom } from './gameRoom.js'
 
-const queue = new Map()  // socketId → { socket, playerId, displayName }
-const rooms = new Map()  // matchId  → room
+const queue          = new Map()
+const rooms          = new Map()
+const lastMatchInfo  = new Map()
+const rematchPending = new Map()
+
+const NAME_RE  = /^[\w\s\-\.]{1,30}$/
+const MAX_QUEUE_WAIT_MS = 10 * 60 * 1000 // 10 min — evict stale queue entries
 
 export function setupMatchmaking(io) {
   io.on('connection', (socket) => {
+
     socket.on('QUEUE_JOIN', ({ displayName }) => {
-      if (queue.has(socket.id)) return  // already queued, ignore duplicate
+      // Prevent duplicate entries
+      if (queue.has(socket.id)) return
+
+      const name = (typeof displayName === 'string' ? displayName : '').trim().slice(0, 30)
+      if (!NAME_RE.test(name || 'x')) {
+        socket.emit('QUEUE_ERROR', { message: 'Invalid display name' })
+        return
+      }
+
       const playerId = uuidv4()
-      const safeName = (typeof displayName === 'string' ? displayName : '')
-        .replace(/[<>"'&]/g, '')
-        .trim()
-        .slice(0, 32) || `Player_${socket.id.slice(0, 4)}`
       queue.set(socket.id, {
         socket,
         playerId,
-        displayName: safeName,
+        displayName: name || `Player_${socket.id.slice(0, 4)}`,
+        joinedAt: Date.now(),
       })
-      console.log(`[queue] ${displayName} joined — size: ${queue.size}`)
+
+      // Evict entries older than MAX_QUEUE_WAIT_MS
+      const now = Date.now()
+      for (const [id, entry] of queue) {
+        if (now - entry.joinedAt > MAX_QUEUE_WAIT_MS) queue.delete(id)
+      }
+
       tryPair(io)
     })
 
-    socket.on('QUEUE_LEAVE', () => {
-      if (queue.delete(socket.id)) {
-        console.log(`[queue] ${socket.id} left — size: ${queue.size}`)
-      }
+    // Verify socket belongs to the match before processing
+    socket.on('EAR_UPDATE', ({ matchId, ear, timestamp, covered }) => {
+      const room = rooms.get(matchId)
+      if (!room?.hasPlayer(socket.id)) return
+      room.processEAR(socket.id, ear, timestamp, { covered })
     })
 
-    socket.on('EAR_UPDATE', ({ matchId, ear }) => {
-      rooms.get(matchId)?.processEAR(socket.id, ear)
+    socket.on('VIDEO_FRAME', ({ matchId, frame }) => {
+      const room = rooms.get(matchId)
+      if (!room?.hasPlayer(socket.id)) return
+      room.relayVideoFrame(socket.id, frame)
     })
 
     socket.on('FORFEIT', ({ matchId, reason }) => {
-      rooms.get(matchId)?.forfeit(socket.id, reason)
+      const room = rooms.get(matchId)
+      if (!room?.hasPlayer(socket.id)) return
+      room.forfeit(socket.id, reason)
+    })
+
+    socket.on('REMATCH_REQUEST', ({ matchId }) => {
+      const info = lastMatchInfo.get(socket.id)
+      if (!info || info.matchId !== matchId) {
+        socket.emit('REMATCH_DECLINED', { matchId, reason: 'expired' })
+        return
+      }
+
+      const { opponentSocketId } = info
+      const opponentSocket = io.sockets.sockets.get(opponentSocketId)
+      if (!opponentSocket?.connected) {
+        socket.emit('REMATCH_DECLINED', { matchId, reason: 'opponent-left' })
+        return
+      }
+
+      const pending = rematchPending.get(matchId)
+      if (pending?.has(opponentSocketId)) {
+        rematchPending.delete(matchId)
+        lastMatchInfo.delete(socket.id)
+        lastMatchInfo.delete(opponentSocketId)
+
+        const newMatchId = uuidv4()
+        const p1 = { socketId: socket.id,        playerId: uuidv4(), displayName: info.player.displayName }
+        const p2 = { socketId: opponentSocketId, playerId: uuidv4(), displayName: info.opponent.displayName }
+        startMatch(io, newMatchId, p1, p2)
+      } else {
+        if (!rematchPending.has(matchId)) rematchPending.set(matchId, new Set())
+        rematchPending.get(matchId).add(socket.id)
+        opponentSocket.emit('REMATCH_REQUESTED', { matchId, opponentName: info.player.displayName })
+      }
+    })
+
+    socket.on('REMATCH_CANCEL', ({ matchId }) => {
+      const pending = rematchPending.get(matchId)
+      if (pending) {
+        pending.delete(socket.id)
+        if (pending.size === 0) rematchPending.delete(matchId)
+      }
     })
 
     socket.on('disconnect', () => {
@@ -44,42 +105,53 @@ export function setupMatchmaking(io) {
           break
         }
       }
+
+      const info = lastMatchInfo.get(socket.id)
+      if (info) {
+        const { matchId, opponentSocketId } = info
+        const pending = rematchPending.get(matchId)
+        if (pending?.has(opponentSocketId)) {
+          io.to(opponentSocketId).emit('REMATCH_DECLINED', { matchId, reason: 'opponent-left' })
+        }
+        rematchPending.delete(matchId)
+        lastMatchInfo.delete(socket.id)
+      }
     })
   })
 }
 
 function tryPair(io) {
   if (queue.size < 2) return
-
   const [[id1, p1], [id2, p2]] = [...queue.entries()]
+  if (id1 === id2) return
   queue.delete(id1)
   queue.delete(id2)
+  startMatch(io, uuidv4(),
+    { socketId: id1, playerId: p1.playerId, displayName: p1.displayName },
+    { socketId: id2, playerId: p2.playerId, displayName: p2.displayName },
+  )
+}
 
-  const matchId = uuidv4()
-  const startAt = Date.now() + 500
-
+function startMatch(io, matchId, player1, player2) {
   const room = createGameRoom({
-    matchId, io,
-    player1: { socketId: id1, ...p1 },
-    player2: { socketId: id2, ...p2 },
+    matchId, io, player1, player2,
     onEnd: () => rooms.delete(matchId),
   })
   rooms.set(matchId, room)
 
-  p1.socket.emit('MATCH_FOUND', {
-    matchId,
-    myPlayerId:   p1.playerId,
-    opponentName: p2.displayName,
-    opponentId:   p2.playerId,
-    startAt,
+  lastMatchInfo.set(player1.socketId, {
+    matchId, opponentSocketId: player2.socketId, player: player1, opponent: player2,
   })
-  p2.socket.emit('MATCH_FOUND', {
-    matchId,
-    myPlayerId:   p2.playerId,
-    opponentName: p1.displayName,
-    opponentId:   p1.playerId,
-    startAt,
+  lastMatchInfo.set(player2.socketId, {
+    matchId, opponentSocketId: player1.socketId, player: player2, opponent: player1,
   })
 
-  console.log(`[match] ${matchId} — ${p1.displayName} vs ${p2.displayName}`)
+  const startAt = Date.now() + 500
+  io.to(player1.socketId).emit('MATCH_FOUND', {
+    matchId, myPlayerId: player1.playerId, opponentName: player2.displayName, opponentId: player2.playerId, startAt,
+  })
+  io.to(player2.socketId).emit('MATCH_FOUND', {
+    matchId, myPlayerId: player2.playerId, opponentName: player1.displayName, opponentId: player1.playerId, startAt,
+  })
+  console.log(`[match] ${matchId} — ${player1.displayName} vs ${player2.displayName}`)
 }

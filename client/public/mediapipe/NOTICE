@@ -1,0 +1,13 @@
+MediaPipe Face Mesh runtime assets
+Copyright 2019-2021 The MediaPipe Authors
+
+The files in this directory, other than this NOTICE, are an unmodified
+redistribution of the browser assets from the npm package
+@mediapipe/face_mesh version 0.4.1633559619.
+
+They are licensed under the Apache License, Version 2.0. A copy of that
+license is in LICENSE in this directory. The upstream project is
+https://github.com/google/mediapipe.
+
+BlinkOut loads these files from /mediapipe/ at runtime so Face Mesh can run
+in the browser. Face landmark detection stays on the player's device.

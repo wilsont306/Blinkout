@@ -23,6 +23,26 @@ export function computeEAR(landmarks) {
   return (eyeAspectRatio(landmarks, LEFT_EYE) + eyeAspectRatio(landmarks, RIGHT_EYE)) / 2
 }
 
+// Full eye-contour sets give tighter, more accurate bounding boxes
+const LEFT_EYE_CONTOUR  = [33, 133, 246, 161, 160, 159, 158, 157, 173, 155, 154, 153, 145, 144, 163]
+const RIGHT_EYE_CONTOUR = [362, 263, 466, 388, 387, 386, 385, 384, 398, 382, 381, 380, 374, 373, 390]
+
+export function computeEyeBoxes(landmarks, padding = 0.016) {
+  const box = (indices) => {
+    const pts = indices.map(i => landmarks[i]).filter(Boolean)
+    if (!pts.length) return null
+    const xs = pts.map(p => p.x)
+    const ys = pts.map(p => p.y)
+    return {
+      x: Math.min(...xs) - padding,
+      y: Math.min(...ys) - padding,
+      w: Math.max(...xs) - Math.min(...xs) + padding * 2,
+      h: Math.max(...ys) - Math.min(...ys) + padding * 2,
+    }
+  }
+  return [box(LEFT_EYE_CONTOUR), box(RIGHT_EYE_CONTOUR)].filter(Boolean)
+}
+
 export function averagePixelLuminance(imageData) {
   const { data } = imageData
   let sum = 0

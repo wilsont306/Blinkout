@@ -1,7 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
-import StatusPill from '../ui/StatusPill.jsx'
 import CameraPreview from '../camera/CameraPreview.jsx'
 import EARBar from '../camera/EARBar.jsx'
+import { playClick, playLifeLost } from '../../lib/sounds.js'
+
+const BAD_CAMERA_LOSS_MS = 1000
+const BAD_CAMERA_WARNINGS = new Set(['bad-lighting', 'bad-glare'])
 
 export default function LiveMatch({
   camera,
@@ -9,15 +12,29 @@ export default function LiveMatch({
   matchData,
   playerName,
   sendEAR,
-  onBlinkDetected,
+  sendVideoFrame,
+  opponentEAR = 0.3,
+  opponentFrame = null,
+  lives = { mine: 3, opponent: 3 },
+  onForfeit,
+  mic = null,   // { permission, audioLevel, isMuted, toggleMute, rtcConnected, remoteAudioLevel }
 }) {
   const [elapsed, setElapsed] = useState(0)
-  const [opponentEAR, setOpponentEAR] = useState(0.3)
   const [alertVisible, setAlertVisible] = useState(false)
+  const [myFlash, setMyFlash] = useState(false)
+  const [oppFlash, setOppFlash] = useState(false)
   const startRef = useRef(Date.now())
+  const frameCanvasRef = useRef(null)
+  const prevMineRef = useRef(lives.mine)
+  const prevOppRef = useRef(lives.opponent)
 
   const { attachRef } = camera
-  const { ear, faceDetected, loading } = blink
+  const { ear, faceDetected, loading, warning, eyeBoxes, blinking } = blink
+  const earRef = useRef(ear)
+  const faceDetectedRef = useRef(faceDetected)
+  const warningRef = useRef(warning)
+  const onForfeitRef = useRef(onForfeit)
+  const badCameraSinceRef = useRef(null)
 
   // Match timer
   useEffect(() => {
@@ -27,15 +44,110 @@ export default function LiveMatch({
     return () => clearInterval(t)
   }, [])
 
-  // Send EAR to server on every update
   useEffect(() => {
-    if (matchData?.matchId) sendEAR(matchData.matchId, ear)
-  }, [ear, matchData?.matchId])
+    earRef.current = ear
+    faceDetectedRef.current = faceDetected
+    warningRef.current = warning
+  }, [ear, faceDetected, warning])
+
+  useEffect(() => {
+    onForfeitRef.current = onForfeit
+  }, [onForfeit])
+
+  // Send a steady EAR signal so covered/missing faces can strike like a blink.
+  useEffect(() => {
+    if (!matchData?.matchId) return
+
+    const t = setInterval(() => {
+      const shouldStrikeAsCovered =
+        !faceDetectedRef.current ||
+        warningRef.current === 'covered' ||
+        BAD_CAMERA_WARNINGS.has(warningRef.current)
+      sendEAR(matchData.matchId, shouldStrikeAsCovered ? 0 : earRef.current, {
+        covered: shouldStrikeAsCovered,
+      })
+    }, 120)
+
+    return () => clearInterval(t)
+  }, [matchData?.matchId, sendEAR])
+
+  useEffect(() => {
+    if (!matchData?.matchId || !sendVideoFrame) return
+
+    const t = setInterval(() => {
+      const video = camera.videoEl
+      if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return
+
+      const canvas = frameCanvasRef.current ?? document.createElement('canvas')
+      frameCanvasRef.current = canvas
+      canvas.width = 640
+      canvas.height = Math.round(640 * (video.videoHeight / video.videoWidth))
+
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      sendVideoFrame(matchData.matchId, canvas.toDataURL('image/jpeg', 0.94))
+    }, 50)
+
+    return () => clearInterval(t)
+  }, [camera.videoEl, matchData?.matchId, sendVideoFrame])
+
+  // Bad lighting/glare can hide blinks. Give it one second, then forfeit.
+  useEffect(() => {
+    if (!matchData?.matchId) return
+
+    const t = setInterval(() => {
+      const currentWarning = warningRef.current
+      if (!BAD_CAMERA_WARNINGS.has(currentWarning)) {
+        badCameraSinceRef.current = null
+        return
+      }
+
+      if (!badCameraSinceRef.current) {
+        badCameraSinceRef.current = Date.now()
+        return
+      }
+
+      if (Date.now() - badCameraSinceRef.current >= BAD_CAMERA_LOSS_MS) {
+        onForfeitRef.current?.(currentWarning)
+      }
+    }, 120)
+
+    return () => clearInterval(t)
+  }, [matchData?.matchId])
 
   // Show alert when EAR nears threshold
   useEffect(() => {
     setAlertVisible(ear < 0.28)
   }, [ear])
+
+  // Life-lost flash + sound
+  useEffect(() => {
+    if (lives.mine < prevMineRef.current) {
+      setMyFlash(true)
+      playLifeLost()
+      const t = setTimeout(() => setMyFlash(false), 600)
+      prevMineRef.current = lives.mine
+      return () => clearTimeout(t)
+    }
+    prevMineRef.current = lives.mine
+  }, [lives.mine])
+
+  useEffect(() => {
+    if (lives.opponent < prevOppRef.current) {
+      setOppFlash(true)
+      const t = setTimeout(() => setOppFlash(false), 600)
+      prevOppRef.current = lives.opponent
+      return () => clearTimeout(t)
+    }
+    prevOppRef.current = lives.opponent
+  }, [lives.opponent])
+
+  // Notify parent when local blink fires (server also confirms via MATCH_END)
+  useEffect(() => {
+    blink.resetBlink && (window.__blinkResetRef = blink.resetBlink)
+  }, [blink.resetBlink])
 
   const formatTime = (ms) => {
     const s = ms / 1000
@@ -45,98 +157,174 @@ export default function LiveMatch({
   }
 
   return (
-    <div className="match">
-      {/* Top bar */}
-      <div className="match__topbar">
-        <span className="match__timer" aria-label="Match timer" aria-live="off">
-          {formatTime(elapsed)}
-        </span>
-        <StatusPill variant="live" pulse>LIVE</StatusPill>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-          EAR threshold: 0.20
-        </span>
-      </div>
-
-      {/* Arena */}
-      <div className="match__arena">
-        {/* Local player */}
-        <div className="player-panel">
-          <div className="player-panel__handle">
-            <span
-              style={{
-                width: 8, height: 8, borderRadius: '50%',
-                background: faceDetected ? 'var(--accent-violet)' : 'var(--accent-red)',
-                flexShrink: 0,
-              }}
-            />
-            {playerName}
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-              YOU
-            </span>
-          </div>
-
-          <CameraPreview
-            attachRef={attachRef}
-            faceDetected={faceDetected}
-            loading={loading}
-            style={{ flex: 1 }}
-          />
-
-          <div className="player-panel__ear-row">
-            <span>EAR</span>
-            <EARBar ear={ear} />
-          </div>
+    <div className="poster-screen poster-screen--duel">
+      {myFlash && <div className="life-lost-flash" aria-hidden />}
+      <div className="poster-card poster-card--duel">
+        <div className="poster-meta">Browser Coliseum · 10-May-MMXXVI · Best of Three Lives</div>
+        <div className="poster-kicker">Round 01</div>
+        <div className="duel-timer">
+          <span>Elapsed</span>
+          <strong aria-label="Match timer" aria-live="off">{formatTime(elapsed)}</strong>
+          <em>
+            {warning === 'photo-face'
+              ? 'Photo detected'
+              : warning === 'bad-lighting'
+              ? 'Too dark'
+              : warning === 'bad-glare'
+              ? 'Too much glare'
+              : warning === 'covered'
+              ? 'Face covered'
+              : alertVisible
+              ? 'Hold steady'
+              : 'Stand ready'}
+          </em>
         </div>
 
-        {/* VS divider */}
-        <div className="match__vs">VS</div>
-
-        {/* Opponent panel */}
-        <div className="player-panel">
-          <div className="player-panel__handle">
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--border-emphasis)', flexShrink: 0 }} />
-            {matchData?.opponentName ?? 'Opponent'}
-          </div>
-
-          <div
-            className="camera-window camera-window--opponent"
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 8 }}
+        <div className="poster-duel">
+          <DuelCard
+            corner="Blue corner · You"
+            number="01"
+            name={playerName}
+            role="Challenger"
+            statusColor={faceDetected ? 'var(--poster-amber)' : 'var(--poster-red)'}
+            lives={lives.mine}
+            ear={ear}
+            flash={myFlash}
+            micLevel={mic?.audioLevel ?? 0}
+            micEnabled={mic?.permission === 'granted'}
+            micSlot={mic?.permission === 'granted' && (
+              <button
+                className={`mic-mute-btn${mic.isMuted ? ' mic-mute-btn--muted' : ''}`}
+                type="button"
+                onClick={mic.toggleMute}
+                title={mic.isMuted ? 'Unmute microphone' : 'Mute microphone'}
+                aria-label={mic.isMuted ? 'Unmute microphone' : 'Mute microphone'}
+              >
+                {mic.isMuted ? '🔇' : '🎤'}
+              </button>
+            )}
           >
-            <span style={{ fontSize: 40, opacity: 0.4 }}>👤</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
-              Remote feed not streamed
-            </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
-              (WebRTC — Phase 2)
-            </span>
-          </div>
+            <CameraPreview
+              attachRef={attachRef}
+              videoEl={camera.videoEl}
+              faceDetected={faceDetected}
+              loading={loading}
+              eyeBoxes={eyeBoxes}
+              blinking={blinking}
+              style={{ width: '100%', aspectRatio: '4 / 3', borderRadius: 0 }}
+            />
+          </DuelCard>
 
-          <div className="player-panel__ear-row">
-            <span>EAR</span>
-            <EARBar ear={opponentEAR} />
-          </div>
+          <div className="poster-vs">VS</div>
+
+          <DuelCard
+            corner="Red corner"
+            number="02"
+            name={matchData?.opponentName ?? 'Opponent'}
+            role="Champion"
+            statusColor="var(--poster-ink-soft)"
+            lives={lives.opponent}
+            ear={opponentEAR}
+            flash={oppFlash}
+            micLevel={mic?.remoteAudioLevel ?? 0}
+            micEnabled={!!mic?.rtcConnected}
+          >
+            <div className="poster-opponent-feed">
+              {opponentFrame ? (
+                <img
+                  src={opponentFrame}
+                  alt={`${matchData?.opponentName ?? 'Opponent'} camera feed`}
+                />
+              ) : (
+                <>
+                  <span>--</span>
+                  <small>Waiting for feed</small>
+                </>
+              )}
+            </div>
+          </DuelCard>
         </div>
-      </div>
 
-      {/* Alert strip */}
-      {alertVisible && (
-        <div
-          className="match__alert"
-          role="alert"
-          aria-live="polite"
+        <div className="poster-duel-cta">
+          Don't blink. <small>first to blink loses</small>
+          {onForfeit && (
+            <button className="duel-forfeit-btn" type="button" onClick={() => { playClick(); onForfeit?.() }}>
+              Leave
+            </button>
+          )}
+        </div>
+        <div className="poster-footnote">Blink Duel · Entry 04</div>
+        <div className="poster-footnote poster-footnote--right">Preview shared with your opponent</div>
+      </div>
+    </div>
+  )
+}
+
+function DuelCard({ corner, number, name, role, statusColor, lives, ear, flash, micLevel, micEnabled, micSlot, children }) {
+  return (
+    <article className={`duel-card${flash ? ' duel-card--flash' : ''}`}>
+      <div className="duel-card__corner">
+        <span>{corner}</span>
+        <span>{number}</span>
+      </div>
+      <div className="duel-card__name">
+        <span style={{ background: statusColor }} />
+        <strong>{name}</strong>
+        <em>{role}</em>
+      </div>
+      {children}
+      <LifeBox label="Lives" value={lives} />
+      <div className="duel-card__ear">
+        <span>EAR</span>
+        <EARBar ear={ear} />
+      </div>
+      <div className="duel-card__mic">
+        <span>MIC</span>
+        <MicBar level={micLevel} enabled={micEnabled} />
+        {micSlot}
+      </div>
+    </article>
+  )
+}
+
+function MicBar({ level, enabled }) {
+  const pct = Math.min(100, Math.round(level * 100 * 2.5)) // boost sensitivity
+  return (
+    <div className={`mic-bar-track${!enabled ? ' mic-bar-track--off' : ''}`} role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Microphone level">
+      <div
+        className={`mic-bar-fill${pct > 70 ? ' mic-bar-fill--loud' : ''}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  )
+}
+
+function LifeBox({ label, value }) {
+  const prevRef = useRef(value)
+  const [breaking, setBreaking] = useState(null)
+
+  useEffect(() => {
+    if (value < prevRef.current) {
+      setBreaking(prevRef.current - 1)
+      const t = setTimeout(() => setBreaking(null), 750)
+      prevRef.current = value
+      return () => clearTimeout(t)
+    }
+    prevRef.current = value
+  }, [value])
+
+  return (
+    <div className="life-box" aria-label={`${value} lives remaining`}>
+      <span className="life-box__label">{label}</span>
+      {[0, 1, 2].map(index => (
+        <span
+          key={index}
+          className={`life-heart${index < value ? ' life-heart--active' : ''}${index === breaking ? ' life-heart--breaking' : ''}`}
+          aria-hidden
         >
-          Monitoring eye aspect ratio — stay focused
-        </div>
-      )}
-
-      {/* Status bar */}
-      <div className="match__statusbar">
-        <span>threshold: 0.20</span>
-        <span>30 fps</span>
-        <span style={{ marginLeft: 'auto', color: faceDetected ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-          {faceDetected ? '● face ok' : '○ no face'}
+          {index === breaking ? '💔' : index < value ? '♥' : '♡'}
         </span>
-      </div>
+      ))}
     </div>
   )
 }
