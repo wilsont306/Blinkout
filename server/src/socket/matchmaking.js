@@ -11,8 +11,18 @@ const MAX_QUEUE_WAIT_MS = 10 * 60 * 1000 // 10 min — evict stale queue entries
 
 export function setupMatchmaking(io) {
   io.on('connection', (socket) => {
+    // Payloads come from untrusted clients. A missing or non-object payload
+    // would throw on destructuring and crash the process, so drop it instead.
+    const on = (event, handler) => socket.on(event, (payload) => {
+      if (!payload || typeof payload !== 'object') return
+      try {
+        handler(payload)
+      } catch (err) {
+        console.error(`[socket] ${event} handler failed`, err)
+      }
+    })
 
-    socket.on('QUEUE_JOIN', ({ displayName }) => {
+    on('QUEUE_JOIN', ({ displayName }) => {
       // Prevent duplicate entries
       if (queue.has(socket.id)) return
 
@@ -40,25 +50,25 @@ export function setupMatchmaking(io) {
     })
 
     // Verify socket belongs to the match before processing
-    socket.on('EAR_UPDATE', ({ matchId, ear, timestamp, covered }) => {
+    on('EAR_UPDATE', ({ matchId, ear, timestamp, covered }) => {
       const room = rooms.get(matchId)
       if (!room?.hasPlayer(socket.id)) return
       room.processEAR(socket.id, ear, timestamp, { covered })
     })
 
-    socket.on('VIDEO_FRAME', ({ matchId, frame }) => {
+    on('VIDEO_FRAME', ({ matchId, frame }) => {
       const room = rooms.get(matchId)
       if (!room?.hasPlayer(socket.id)) return
       room.relayVideoFrame(socket.id, frame)
     })
 
-    socket.on('FORFEIT', ({ matchId, reason }) => {
+    on('FORFEIT', ({ matchId, reason }) => {
       const room = rooms.get(matchId)
       if (!room?.hasPlayer(socket.id)) return
       room.forfeit(socket.id, reason)
     })
 
-    socket.on('REMATCH_REQUEST', ({ matchId }) => {
+    on('REMATCH_REQUEST', ({ matchId }) => {
       const info = lastMatchInfo.get(socket.id)
       if (!info || info.matchId !== matchId) {
         socket.emit('REMATCH_DECLINED', { matchId, reason: 'expired' })
@@ -89,7 +99,7 @@ export function setupMatchmaking(io) {
       }
     })
 
-    socket.on('REMATCH_CANCEL', ({ matchId }) => {
+    on('REMATCH_CANCEL', ({ matchId }) => {
       const pending = rematchPending.get(matchId)
       if (pending) {
         pending.delete(socket.id)

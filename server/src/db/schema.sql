@@ -49,11 +49,17 @@ CREATE OR REPLACE FUNCTION join_queue(p_handle TEXT, p_client_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   opponent RECORD;
   new_match_id UUID;
 BEGIN
+  -- Callable with the public anon key, so validate everything
+  IF p_client_id IS NULL OR p_handle IS NULL OR p_handle !~ '^[A-Za-z0-9_ .-]{1,30}$' THEN
+    RAISE EXCEPTION 'invalid handle';
+  END IF;
+
   SELECT * INTO opponent
   FROM queue
   WHERE client_id != p_client_id
@@ -81,7 +87,7 @@ $$;
 
 -- Stale queue cleanup (run periodically or on join): remove entries older than 5 min
 CREATE OR REPLACE FUNCTION evict_stale_queue()
-RETURNS void LANGUAGE sql SECURITY DEFINER AS $$
+RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   DELETE FROM queue WHERE created_at < now() - INTERVAL '5 minutes';
 $$;
 
@@ -104,8 +110,18 @@ CREATE OR REPLACE FUNCTION upsert_leaderboard(
 ) RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
+  -- Callable with the public anon key, so bound every input
+  IF p_handle IS NULL OR p_handle !~ '^[A-Za-z0-9_ .-]{1,30}$' THEN
+    RAISE EXCEPTION 'invalid handle';
+  END IF;
+  IF p_streak IS NULL OR p_streak < 0 OR p_streak > 10000
+     OR p_best_hold IS NULL OR p_best_hold < 0 OR p_best_hold > 3600000 THEN
+    RAISE EXCEPTION 'invalid score';
+  END IF;
+
   INSERT INTO leaderboard (handle, streak, best_hold, matches, updated_at)
   VALUES (p_handle, p_streak, p_best_hold, 1, now())
   ON CONFLICT (handle) DO UPDATE SET
@@ -126,8 +142,13 @@ ALTER TABLE leaderboard ENABLE ROW LEVEL SECURITY;
 ALTER TABLE queue       ENABLE ROW LEVEL SECURITY;
 
 -- Leaderboard is public-read; writes go through the RPC (SECURITY DEFINER bypasses RLS)
-CREATE POLICY IF NOT EXISTS "leaderboard_public_read"
+-- (Postgres has no CREATE POLICY IF NOT EXISTS, so drop-then-create keeps this re-runnable)
+DROP POLICY IF EXISTS "leaderboard_public_read" ON leaderboard;
+CREATE POLICY "leaderboard_public_read"
   ON leaderboard FOR SELECT USING (true);
+
+-- Housekeeping is server-only; the client never calls it
+REVOKE EXECUTE ON FUNCTION evict_stale_queue() FROM PUBLIC, anon, authenticated;
 
 -- Queue is not directly accessible; all ops go through join_queue RPC
 -- (no SELECT policy = no direct client reads)

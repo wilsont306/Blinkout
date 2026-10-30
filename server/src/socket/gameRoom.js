@@ -93,7 +93,9 @@ export function createGameRoom({ matchId, player1, player2, io, onEnd }) {
     const p        = players[socketId]
     const opponent = getOpponent(socketId)
     if (!p || !opponent) return
-    endMatch(p.playerId, opponent.playerId, Date.now() - startMs, reason)
+    // reason is client-supplied and echoed to both players, so keep it a short string
+    const safeReason = typeof reason === 'string' ? reason.slice(0, 32) : 'forfeit'
+    endMatch(p.playerId, opponent.playerId, Date.now() - startMs, safeReason)
   }
 
   function endMatch(loserPlayerId, winnerPlayerId, blinkTimestamp, reason = null) {
