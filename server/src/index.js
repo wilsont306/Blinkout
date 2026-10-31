@@ -77,7 +77,7 @@ fastify.post('/leaderboard', {
   if (!Number.isInteger(streak)  || streak  < 0 || streak  > 10_000) {
     return reply.code(400).send({ error: 'Invalid streak' })
   }
-  if (typeof bestHold !== 'number' || bestHold < 0 || bestHold > 3_600_000) {
+  if (!Number.isInteger(bestHold) || bestHold < 0 || bestHold > 3_600_000) {
     return reply.code(400).send({ error: 'Invalid bestHold' })
   }
 
@@ -116,6 +116,8 @@ fastify.post('/leaderboard', {
 const io = new Server(fastify.server, {
   cors: { origin: CLIENT_ORIGINS, methods: ['GET', 'POST'] },
   transports: ['websocket'],
+  // Video frames are capped at ~90KB in gameRoom; nothing legitimate needs the 1MB default
+  maxHttpBufferSize: 200_000,
 })
 
 setupMatchmaking(io)
