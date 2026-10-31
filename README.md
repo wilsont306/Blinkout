@@ -4,6 +4,13 @@ Real-time multiplayer staring contest. Face Mesh runs in the browser, each playe
 
 ![BlinkOut lobby](docs/lobby.png)
 
+## Highlights
+
+- **Blink detection in the browser.** MediaPipe Face Mesh tracks 468 landmarks on the device and computes the Eye Aspect Ratio every frame. No video is uploaded for detection.
+- **The server decides who blinked.** Clients only send a number. The server applies the threshold, the frame count and the cooldown, so a modified client can't skip its own strikes.
+- **Real-time 1v1.** Socket.IO matchmaking, private invite links, rematches, a live opponent preview, and peer-to-peer voice chat over WebRTC.
+- **Hardened for the open internet.** Every socket payload is validated, the leaderboard functions check their inputs, Row Level Security keeps the public key away from the tables, and the HTTP API is rate-limited behind an origin allowlist.
+
 ## Play
 
 | Mode | What it is |
